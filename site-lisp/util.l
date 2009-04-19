@@ -337,6 +337,12 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
       (goto-char (point-min)))
     (pop-to-buffer obuffer)))
 
+;; よく分からない
+(defconstant text-color-list
+  '(none red green yellow blue purple cyan white black brown olive
+    ocher azure violet 浅葱色？ gray)
+  "set-text-attribute などで使える色の順番.")
+
 (defun find-library (lib)
   "*load-path* の中から適当に選んで開く."
   (interactive (list (read-exist-library "Find library: ")))
@@ -663,49 +669,52 @@ On nonblank line, delete any immediately following blank lines."
         (delete-region (point) (point-max)))))
 (global-set-key '(#\C-x #\C-o) 'emacs-delete-blank-lines)
 
-;; コンパイルしないとものっそ遅い
-;; ネーミングセンスを疑う
-;; 需要はなさそうだが、 *buffer-package* のみにするとか
-;; パッケージ::シンボル名 にも対応するとか
-;; http://xyzzy.s53.xrea.com/reference/wiki.cgi?p=%A5%AD%A1%BC%A5%EF%A1%BC%A5%C9%A5%D5%A5%A1%A5%A4%A5%EB%A4%CE%BD%F1%A4%AD%CA%FD
-(defun reload-keyword-file+ ()
-  "LISP限定追加の色付け."
-  (interactive "p")
-  (unless (and (member buffer-mode '(lisp-mode lisp-interaction-mode))
-               (boundp 'keyword-hash-table)
-               keyword-hash-table)
-    (return-from reload-keyword-file+))
-  (let (fsyms vsyms)
-    (do-all-symbols (sym)
-      (cond ((and (fboundp sym)
-                  (null (gethash (symbol-name sym) ed::*lisp-keyword-hash-table*)))
-             (push sym fsyms))
-            ((and (boundp sym)
-                  (null (gethash (symbol-name sym) ed::*lisp-keyword-hash-table*))
-                  (null (keywordp sym))
-                  (null (member sym lambda-list-keywords)))
-             (push sym vsyms))))
-    (copy-file (merge-pathnames "lisp" (etc-path))
-               #1=(merge-pathnames "lisp++" (etc-path))
-               :if-exists :overwrite)
-    (with-open-file (stream #1# :direction :output :if-exists :append)
-      ;; Function
-      (format stream ";**e0~%") ; この辺
-      (format stream "~{~A~%~}" fsyms)
-      ;; Variable
-      (format stream ";**50~%") ; この辺
-      (format stream "~{~A~%~}" vsyms))
-    (setq keyword-hash-table (load-keyword-file "lisp++"))
-    (refresh-screen t)))
+(defun indent-line-sexp ()
+  "長い一行S式をそれなりにインデントします."
+  (interactive)
+  (labels ((putnl (from to)
+             (save-excursion
+               (replace-string from to t))))
+    (while (up-list -1 'noerror))
+    (save-excursion
+      (save-restriction
+        (narrow-to-region (point)
+                          (save-excursion
+                            (forward-sexp)
+                            (point)))
+        (putnl ") " ")\n")
+        ;; (putnl "(progn ")
+        ;; (putnl "(let nil ")
+        (putnl "(block nil " "(block nil \n")
+        (clear-undo-boundary)))
+    (indent-sexp)))
 
-(or (compiled-function-p #'reload-keyword-file+)
-    (compile 'reload-keyword-file+))
-
-;; よく分からない
-(defconstant text-color-list
-  '(none red green yellow blue purple cyan white black brown olive
-    ocher ruri violet 浅葱色？ gray)
-  "set-text-attribute などで使える色の順番.")
+(defun xyzzy-macroexpand-1 (&optional repeatedly)
+  (interactive "P")
+  (let* ((form (or (save-excursion
+                     (read-from-string
+                      (buffer-substring (progn
+                                          (unless (syntax-open-p (following-char))
+                                            (up-list -1 'noerror))
+                                          (point))
+                                        (progn
+                                          (forward-sexp)
+                                          (point)))
+                      nil nil))
+                   (error "展開するべきフォームが見つかりません")))
+         (*print-circle* t)
+         (expand (handler-case
+                     (funcall (if repeatedly
+                                  #'macroexpand
+                                  #'macroexpand-1)
+                              form)
+                   (error (c)
+                     (error "~A" (si:*condition-string c))))))
+    (with-output-to-temp-buffer (" *XYZZY macroexpansion*")
+      (format t "~S" expand)
+      (lisp-interaction-mode)
+      (indent-line-sexp))))
+(global-set-key '(#\C-c #\C-m) 'xyzzy-macroexpand-1) ; C-c RET
 
 ;; (name-encoding "Shift_JIS") => (name-encoding "Shift_JIS") ; t
 (defun name-encoding (name)
