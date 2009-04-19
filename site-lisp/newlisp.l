@@ -10,6 +10,7 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (require "lispmode")
   (require "shell")
+  (require "util")              ; current-word with-temp-file with-syntax-table
   (require "wip/winapi"))
 
 (export '(*newlisp-exe* *newlisp-dll*))
@@ -226,7 +227,7 @@
       (setq *newlisp-completion-list*
             (make-list-from-keyword-table *newlisp-keyword-hash-table*))
       (return-from newlisp-completion nil))
-  (user::with-lisp-syntax-table
+  (user::with-syntax-table *newlisp-mode-syntax-table*
     (let ((from (save-excursion (skip-syntax-spec-backward "w_") (point))))
       (do-completion from (point)
                      :list-ignore-case
