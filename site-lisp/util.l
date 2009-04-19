@@ -132,6 +132,14 @@
         (minibuffer-message "ｷﾀ━━━~A━━━!!!!" kao)
         (sit-for .1)))))
 
+;; バッファも保存するべき？
+(defmacro with-syntax-table (table &body body)
+  `(let ((#1=#:syntab (syntax-table)))
+     (unwind-protect
+         (progn (use-syntax-table ,table) ,@body)
+       (use-syntax-table #1#))))
+(setf (get 'with-syntax-table 'ed:lisp-indent-hook) 1)
+
 ;;; $EMACS/lisp/comint.el
 ;;; (point) が EOF ならプロセス終了
 (defun comit-delchar-or-maybe-eof (&optional arg)
