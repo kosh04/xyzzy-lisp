@@ -16,6 +16,22 @@
             :if-does-not-exist nil :verbose nil :print nil))))
 ;; (add-hook '*post-startup-hook* 'load-xyzzyrc)
 
+(defun current-word (&optional highlight?)
+  "カーソル位置にある単語を返します."
+  (save-excursion
+    (let* ((syntax (if (standard-char-p (following-char))
+                       "w_" "w_jk"))
+           (from (progn
+                   (skip-syntax-spec-backward syntax)
+                   (point)))
+           (to (progn
+                 (skip-syntax-spec-forward syntax)
+                 (point))))
+      (unless (eql from to)
+        (prog1
+            (buffer-substring from to)
+          (and highlight? (reverse-region from to t)))))))
+
 ;;; XyzzyWikiから拾ってきたんだと思う
 (defun recentf-open-files ()
   "履歴からファイルを開く"
@@ -321,6 +337,50 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
       (goto-char (point-min)))
     (pop-to-buffer obuffer)))
 
+(defun find-library (lib)
+  "*load-path* の中から適当に選んで開く."
+  (interactive (list (read-exist-library "Find library: ")))
+  (let ((file (find-load-path lib)))
+    (when file
+      (if (string-match "\\.lc$" file)
+          (setq file (substring file 0 -1)))
+      (find-file file)
+      (add-history file '*minibuffer-file-name-history*))))
+
+(defun read-exist-library (prompt &optional modules-only)
+  (completing-read prompt
+                   (if modules-only
+                       *modules*
+                       (mapcan #'(lambda (path)
+                                   ;; "*.l" -> "*"
+                                   (mapcar #'(lambda (f) (substring f 0 -2))
+                                           (directory path :recursive t :wild "*.l")))
+                               *load-path*))
+                   :case-fold t :must-match t))
+
+(global-set-key '(#\C-c #\f) 'find-library)
+
+;;; ミニバッファ内で単語削除
+;; http://white.s151.xrea.com/wiki/index.php?memo%2Fxyzzy%2Fminibuffer#w95b8c17
+;; http://xyzzy.s53.xrea.com/wiki/index.php?tips%2F%A5%DF%A5%CB%A5%D0%A5%C3%A5%D5%A5%A1%A4%C7%A4%D2%A4%C8%A4%C4%BE%E5%A4%CE%A5%C7%A5%A3%A5%EC%A5%AF%A5%C8%A5%EA%A4%D8
+(defun delete-word (&optional (arg 1))
+  "*kill-ring*に追加しない単語削除"
+  (interactive "*p")
+  (delete-region (point) (progn (forward-word arg) (point))))
+(defun backward-delete-word (&optional (arg 1))
+  (interactive "*p")
+  (delete-word (- arg)))
+(dolist (keymap (list minibuffer-local-completion-map
+                      minibuffer-local-must-match-map
+                      minibuffer-local-command-line-map
+                      minibuffer-local-map))
+  (define-key keymap #\C-w 'backward-delete-word))
+
+;;; ファイル名のないバッファでの 'save-buffer のエラーをマイルドに
+(add-hook '*save-buffer-no-filenames-hook*
+          (defun no-filenames-error ()
+            (plain-error "ファイル名がありません")))
+
 (defun show-arglist (symbol)
   (interactive "SArglist: ")
   (message "(~A ~{~A~^ ~})" symbol (arglist symbol)))
@@ -382,6 +442,59 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
 (setf (get 'with-temp-file 'ed:lisp-indent-hook) 1)
 ;; (with-temp-file (dest) (truename dest)) => "C:/tmp/~xyzirtx.tmp"
 
+(defun process-list ()
+  "バッファプロセスのリスト."
+  (remove-if (complement #'processp)
+             (mapcar #'buffer-process (buffer-list))))
+
+(defun running-process-exist-p ()
+  "動作中のプロセスがあるか."
+  (some #'(lambda (pid)
+            (eq (process-status pid) :run))
+        (process-list)))
+
+;; (remove-if-not #'need-buffer-save-p (buffer-list))
+(defun modified-buffer-exist-p ()
+  "保存する必要のあるバッファがあるか."
+  (/= (count-modified-buffers) 0))
+
+(defun delete-dump-and-compile-siteinit ()
+  (delete-file (si:dump-image-path) :if-does-not-exist :skip)
+  (let ((siteinit (find-load-path "siteinit")))
+    (when (and siteinit (string-match "\\.lc$" siteinit))
+      ;; *.lc が存在して *.l が存在しないなんて可能性があるんだが
+      (trap-errors (compile-file (substring siteinit 0 -1))))))
+
+;;; 環境変数の変更が反映されないのはしょうがないのか
+;;; [注意]
+;;; (kill-xyzzy)する時にyes-no-or-cancel-p/yes-or-no-pに引っかかるとイヤになる
+;;; [関連するもの] バッファプロセス、保存、排他制御
+;;; (need-buffer-save-p buf) (verify-buffers-file-modtime) (buffer-modified-p &optional buf)
+;;; *kill-xyzzy-hook*に時間をかけるとまずいかもね -> 先に実行させておこう
+(defun reboot-xyzzy (&optional cleanup)
+  "xyzzyを再起動する."
+  (interactive "P")
+  ;; (save-some-buffers)
+  (cond ((and *query-kill-xyzzy-hook*
+              (null (run-hook-with-args-while-success '*query-kill-xyzzy-hook*)))
+         (return-from reboot-xyzzy))
+        ((modified-buffer-exist-p) (error "保存をしよう、な！"))
+        ((running-process-exist-p) (error "サブプロセスが走ってるで")))
+  (when cleanup
+    (delete-dump-and-compile-siteinit))
+  (run-hooks '*kill-xyzzy-hook*)
+  (let ((*kill-xyzzy-hook* nil)
+        (*query-kill-xyzzy-hook* nil))
+    (and (call-process (merge-pathnames "xyzzy.exe" (si:system-root))
+                       ;; 環境変数の設定
+                       :environ `(("XYZZYHOME" . ,(si:system-root))
+                                  ;; 設定ファイル (xyzzy.ini等) のディレクトリ
+                                  ("XYZZYCONFIGPATH" . ,(user-config-path)))
+                       :no-std-handles t
+                       :exec-directory (si:system-root)
+                       :show t
+                       :wait nil)
+         (kill-xyzzy))))
 
 ;;; @@describeシリーズ
 
