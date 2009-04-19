@@ -20,28 +20,28 @@ fdefinition
 (in-package :lisp)
 
 (export '(nth-value
-	  probe-file
-	  file-write-date
-	  lisp-implementation-type
+          probe-file
+          file-write-date
+          lisp-implementation-type
           lisp-implementation-version
-	  make-string
-	  special-operator-p
-	  pprint
-	  with-standard-io-syntax
-	  progv
-	  sleep
-	  time			; 'winapi::time と被る可能性あり注意
+          make-string
+          special-operator-p
+          pprint
+          with-standard-io-syntax
+          progv
+          sleep
+          time                  ; 'winapi::time と被る可能性あり注意
           constantly
           function-lambda-expression
           name-char
           ensure-directories-exist
-	  ))
+          ))
 
 (defmacro nth-value (n form)
   "return only value the nth value yielded by form."
   `(nth ,n (multiple-value-list ,form)))
 
-;;; PROBE-FILE returns false if there is no file named pathspec, and other 
+;;; PROBE-FILE returns false if there is no file named pathspec, and other
 ;;; wise returns the truename of pathspec.
 (defun probe-file (pathname)
   "tests whether a file exists."
@@ -60,7 +60,7 @@ cannot be determined."
 (si:*fset 'lisp-implementation-version #'software-version)
 
 (defun make-string (size &key (initial-element #\null)
-			 (element-type 'character))
+                         (element-type 'character))
   (if (subtypep element-type 'character)
       (make-array size
                   :initial-element initial-element
@@ -89,26 +89,26 @@ are bound to values that produce standard read/print behavior. The values
 for the variables specified by this standard are listed in the next figure."
   `(let ((*package* ,(find-package :user))
 #-xyzzy  (*print-array* t)
-	 (*print-base* 10)
+         (*print-base* 10)
 #-xyzzy  (*print-case* :upcase)
-	 (*print-circle* nil)
-	 (*print-escape* t)
+         (*print-circle* nil)
+         (*print-escape* t)
 #-xyzzy  (*print-gensym* t)
-	 (*print-length* nil)
-	 (*print-level* nil)
+         (*print-length* nil)
+         (*print-level* nil)
 #-xyzzy  (*print-lines* nil)
 #-xyzzy  (*print-miser-width* nil)
 #-xyzzy  (*print-pprint-dispatch* *print-pprint-dispatch*) ; [The standard pprint dispatch table]
-	 (*print-pretty* nil)
-	 (*print-radix* nil)
-	 (*print-readably* t)
+         (*print-pretty* nil)
+         (*print-radix* nil)
+         (*print-readably* t)
 #-xyzzy  (*print-right-margin* nil)
 #-xyzzy  (*read-base* 10)
-	 (*read-default-float-format* 'single-float)
+         (*read-default-float-format* 'single-float)
 #-xyzzy  (*read-eval* t)
-	 (*read-suppress* nil)
-	 (*readtable* (copy-readtable nil)) ; [The standard readtable]
-	 )
+         (*read-suppress* nil)
+         (*readtable* (copy-readtable nil)) ; [The standard readtable]
+         )
      ,@body))
 
 ;; あんまりテストしてないのでバグっている可能性あり

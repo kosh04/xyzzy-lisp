@@ -174,7 +174,7 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
   (save-excursion
     (widen)
     (narrow-to-region (progn (beginning-of-defun) (point))
-		      (progn (end-of-defun)       (point)))))
+                      (progn (end-of-defun)       (point)))))
 
 (global-set-key '(#\C-x #\n #\d) 'narrow-to-defun)
 ;; (global-set-key '(#\C-x #\n #\n) 'narrow-to-region)
@@ -554,7 +554,7 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
                 #+xyzzy nil)))
 
 (defun encoding-names (encoding)
-  "文字エンコーディングENCODING名前一覧を返す."
+  "文字エンコーディングENCODINGの名前一覧を返す."
   `((:display-name ,(char-encoding-display-name encoding))
     (:name         ,(char-encoding-name encoding))
     (:misc         ,(cdr (assoc encoding ed:*character-set-alist*
@@ -620,8 +620,7 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
   (refresh-tool-bars)
   (do-events))
 
-(setf (symbol-function 'hash->list)
-      #'make-list-from-keyword-table)
+(setf (symbol-function 'hash->list) #'make-list-from-keyword-table)
 
 (defun map-backslash-to-slash-region (from to)
   (interactive "*r")
@@ -716,7 +715,7 @@ On nonblank line, delete any immediately following blank lines."
       (indent-line-sexp))))
 (global-set-key '(#\C-c #\C-m) 'xyzzy-macroexpand-1) ; C-c RET
 
-;; (name-encoding "Shift_JIS") => (name-encoding "Shift_JIS") ; t
+;; (name-encoding "Shift_JIS") => #.(make-sjis-encoding "sjis" "日本語(Shift_JIS)") ; t
 (defun name-encoding (name)
   "NAMEに対応する文字コードオブジェクトを返します."
   (gethash name *mime-charset-name-hash-table*))
@@ -744,22 +743,22 @@ On nonblank line, delete any immediately following blank lines."
 (defun command-execute-in-keymap (prompt keymap)
   (if (keymapp keymap)
       (labels ((expand-keymap (map)
-		 (case (type-of map)
-		   (simple-vector
-		    (mapcan #'expand-keymap-1 (coerce map 'list)))
-		   (cons
-		    (mapcan #'expand-keymap-1 (mapcar #'cdr (rest map))))))
-	       (expand-keymap-1 (x)
-		 (cond ((null x) nil)
-		       ((keymapp x) (expand-keymap x))
-		       (t (list x)))))
-	(let* ((fns (expand-keymap keymap))
-	       (sym (find-symbol
-		     (completing-read prompt fns :must-match t))))
-	  (if (and (fboundp sym)
-		   (commandp sym))
-	      (call-interactively sym)
-	    (error "関数が定義されていません: ~A" sym))))
-    (error 'type-error :datum keymap :expected-type 'keymap)))
+                 (case (type-of map)
+                   (simple-vector
+                    (mapcan #'expand-keymap-1 (coerce map 'list)))
+                   (cons
+                    (mapcan #'expand-keymap-1 (mapcar #'cdr (rest map))))))
+               (expand-keymap-1 (x)
+                 (cond ((null x) nil)
+                       ((keymapp x) (expand-keymap x))
+                       (t (list x)))))
+        (let* ((fns (expand-keymap keymap))
+               (sym (find-symbol
+                     (completing-read prompt fns :must-match t))))
+          (if (and (fboundp sym)
+                   (commandp sym))
+              (call-interactively sym)
+              (error "関数が定義されていません: ~A" sym))))
+      (error 'type-error :datum keymap :expected-type 'keymap)))
 
 ;;; util.l ends here

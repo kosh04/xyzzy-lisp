@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: Editor; Encoding: UTF-8 -*-
+﻿;;; -*- Mode: Lisp; Package: EDITOR; Encoding: UTF-8 -*-
 ;;;
 ;;; This file is NOT part of xyzzy.
 ;;;
@@ -289,14 +289,11 @@
 (export 'newlisp-manual-from-text)
 (defun newlisp-manual-from-text (str)
   (interactive
-      (list (let (acc)
-              (maphash (lambda (key val)
-                         (push key acc))
-                       ;; newlisp-mode を一度も呼び出していないとキーワードファイルを読み込まずにエラーになるな…
-                       *newlisp-keyword-hash-table*)
-              (completing-read "newLISP: " acc
-                               :default (user::current-word t)
-                               :must-match t :case-fold t))))
+      (list (completing-read "newLISP: "
+                             (make-list-from-keyword-table
+                              ed::*newlisp-keyword-hash-table*)
+                             :default (user::current-word t)
+                             :must-match t :case-fold t)))
   ;; (find-file-other-window "C:/home/lxuser/newlisp/newlisp_manual.txt" nil t)
   (pop-to-buffer
    (prog2
