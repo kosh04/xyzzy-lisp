@@ -15,8 +15,9 @@
 
 (export '(*newlisp-exe* *newlisp-dll*))
 
-(defvar *newlisp-directory* (or (si:getenv "NEWLISPDIR")
-                                (merge-pathnames "newlisp" (si:getenv "PROGRAMFILES"))))
+(defvar *newlisp-directory*
+  (or (si:getenv "NEWLISPDIR")
+      (merge-pathnames "newlisp" (si:getenv "PROGRAMFILES"))))
 (defvar *newlisp-exe* (merge-pathnames "newlisp.exe" *newlisp-directory*))
 (defvar *newlisp-dll* (merge-pathnames "newlisp.dll" *newlisp-directory*))
 
@@ -26,8 +27,9 @@
           newlisp-eval-buffer
           newlisp-eval-defun
           newlisp-mode
-          newlisp-shell
+          run-newlisp
           newlisp-kill-process
+          newlisp-completion
           newlisp-manual
           *newlisp-mode-hook*))
 
@@ -201,9 +203,10 @@
                             (set-buffer-fileio-encoding
                              *newlisp-process-encoding* #1#))))
 
-(defun newlisp-shell (&optional usedos)
+;; 既に別のshellが起動されていると困るなあ
+(defun run-newlisp (&optional usedos)
   (interactive "P")
-  (let ((*eshell* (format nil "~A -C -w ~A"
+  (let ((*eshell* (format nil "~A -C -w ~S"
                           (get-short-path-name *newlisp-exe*)
                           (default-directory)))
         (*shell-mode-hook*
@@ -245,9 +248,12 @@
   (let ((keymap (copy-keymap ed::*lisp-mode-map*)))
     ;; (define-key keymap #\TAB 'lisp-indent-line)
     ;; (define-key keymap #\C-j 'newlisp-eval-last-sexp)
+    ;; (define-key keymap #\F5 'newlisp-eval-buffer)
     (define-key keymap '(#\C-x #\C-e) 'newlisp-eval-last-sexp)
+    (define-key keymap '(#\C-c #\C-r) 'newlisp-eval-region)
     (define-key keymap #\M-C-x 'newlisp-eval-defun)
-    (define-key keymap '(#\C-c #\C-i) 'newlisp-completion)
+    (define-key keymap '(#\C-c #\TAB) 'newlisp-completion) ; C-c C-i
+    (define-key keymap '(#\C-c #\C-z) 'newlisp-show-log-buffer)
     keymap))
 
 (defun newlisp-mode ()
@@ -290,18 +296,22 @@
 (export 'newlisp-manual-from-text)
 (defun newlisp-manual-from-text (str)
   (interactive
-      (list (completing-read "newLISP: "
-                             (make-list-from-keyword-table
-                              ed::*newlisp-keyword-hash-table*)
-                             :default (user::current-word t)
+      (list (completing-read "newLISP manual: "
+                             #1=(make-list-from-keyword-table
+                                 ed::*newlisp-keyword-hash-table*)
+                             :default (find (user::current-word) #1# :test #'string=)
                              :must-match t :case-fold t)))
   ;; (find-file-other-window "C:/home/lxuser/newlisp/newlisp_manual.txt" nil t)
   (pop-to-buffer
    (prog2
-       (find-file-other-window "C:/home/lxuser/newlisp/newlisp_manual.txt" nil t)
+       (find-file-other-window "C:/home/lxuser/lib/emacs/newlisp/newlisp_manual.txt" nil t)
        (find-buffer "newlisp_manual.txt")))
+  (toggle-read-only t)
   (goto-char (point-min))
-  (scan-buffer (concat "*syntax: (" str)))
+  (scan-buffer (concat (regexp-quote (concat "*syntax: (" str))
+                       "[) ]")
+               :regexp t))
+;; " " を加える意味はあるのか
 (define-key ed::*newlisp-mode-map* '(#\C-c #\h) 'newlisp-manual-from-text)
 
 #|
@@ -345,7 +355,8 @@
 (export 'newlisp-show-log-buffer)
 (defun newlisp-show-log-buffer ()
   (interactive)
-  (switch-to-buffer *newlisp-process-buffer-name*))
+  (switch-to-buffer *newlisp-process-buffer-name*)
+  (goto-char (point-max)))
 
 ;; prompt-debugger-mode
 ;; " 0>"
@@ -373,11 +384,14 @@
 ; (defindent sgn 1)
 (defindent letrec let)          ; scheme?
 (defindent letrec* let*)
+(defindent doargs 1)
+(defindent do-while while)
 
 
 (in-package "winapi")
 
+;; 使い方分かりません
 (c:*define-dll-entry LPSTR newlispEvalStr (LPSTR)
-  *newlisp-dll* "newlispEvalStr")
+  ed:*newlisp-dll* "newlispEvalStr")
 
 ;;; newlisp.l ends here

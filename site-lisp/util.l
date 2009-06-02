@@ -197,12 +197,12 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
 
 ;; 末尾の改行も考慮するならread-lineは多値でとるべき
 (defun cat (file &optional stream)
-  "print FILE contents to STREAM (default *standard-input*)."
+  "print FILE contents to STREAM (default *standard-output*)."
   (with-open-file (fp file :direction :input)
     (loop
       (multiple-value-bind (line missing-newline-p)
           (read-line fp nil nil)
-        (when (null line) (return))
+        (unless line (return))
         (princ line stream)
         (unless missing-newline-p (terpri stream))))))
 
@@ -652,7 +652,6 @@ On nonblank line, delete any immediately following blank lines."
                                (progn
                                  (forward-line -1)
                                  (not (looking-at "[ \t]*$")))))))
-
     (when thisblank
       (beginning-of-line)
       (if singleblank (forward-line 1))
@@ -728,45 +727,60 @@ On nonblank line, delete any immediately following blank lines."
   "NAMEに対応する文字コードオブジェクトを返します."
   (gethash name *mime-charset-name-hash-table*))
 
-;; help
+;; Help
 (defvar help-map (make-sparse-keymap))
 (setf (symbol-function 'help-command-prefix) help-map)
 (global-set-key #\F1 'help-command-prefix)
-(define-key help-map '#\A 'user::imm-apropos) ; or 'apropos
-(define-key help-map '#\a 'user::imm-command-apropos) ; 'command-apropos
-(define-key help-map '#\b 'user::imm-describe-bindings) ; 'describe-bindings
-(define-key help-map '#\c 'describe-key-briefly)
-(define-key help-map '#\f 'describe-function)
-(define-key help-map '#\i 'ed:info)
-(define-key help-map '#\k 'user::imm-describe-key) ; 'describe-key
-(define-key help-map '#\l 'view-lossage)
-(define-key help-map '#\v 'describe-variable)
-(define-key help-map '#\F1 'show-html-help)
-(define-key help-map '#\? 'call-help-list)
+(define-key help-map #\A 'user::imm-apropos) ; or 'apropos
+(define-key help-map #\a 'user::imm-command-apropos) ; 'command-apropos
+(define-key help-map #\b 'user::imm-describe-bindings) ; 'describe-bindings
+(define-key help-map #\c 'describe-key-briefly)
+(define-key help-map #\f 'describe-function)
+(define-key help-map #\i 'ed:info)
+(define-key help-map #\k 'user::imm-describe-key) ; 'describe-key
+(define-key help-map #\l 'view-lossage)
+(define-key help-map #\v 'describe-variable)
+(define-key help-map #\F1 'show-html-help)
+(define-key help-map #\? 'call-help-list)
+
+(define-key help-map #\C-a 'about-dialog)
+(define-key help-map #\q 'quit) ; help-quit
 
 (defun call-help-list ()
   (interactive)
   (command-execute-in-keymap "Help: " help-map))
 
 (defun command-execute-in-keymap (prompt keymap)
-  (if (keymapp keymap)
-      (labels ((expand-keymap (map)
-                 (case (type-of map)
-                   (simple-vector
-                    (mapcan #'expand-keymap-1 (coerce map 'list)))
-                   (cons
-                    (mapcan #'expand-keymap-1 (mapcar #'cdr (rest map))))))
-               (expand-keymap-1 (x)
-                 (cond ((null x) nil)
-                       ((keymapp x) (expand-keymap x))
-                       (t (list x)))))
-        (let* ((fns (expand-keymap keymap))
-               (sym (find-symbol
-                     (completing-read prompt fns :must-match t))))
-          (if (and (fboundp sym)
-                   (commandp sym))
-              (call-interactively sym)
-              (error "関数が定義されていません: ~A" sym))))
-      (error 'type-error :datum keymap :expected-type 'keymap)))
+  (unless (keymapp keymap)
+    (error 'type-error :datum keymap :expected-type 'keymap))
+  (labels ((expand-keymap (map)
+             (case (type-of map)
+               (simple-vector
+                (mapcan #'expand-keymap-1 (coerce map 'list)))
+               (cons
+                (mapcan #'expand-keymap-1 (mapcar #'cdr (rest map))))))
+           (expand-keymap-1 (x)
+             (cond ((null x) nil)
+                   ((keymapp x) (expand-keymap x))
+                   (t (list x)))))
+    (let ((sym (find-symbol
+                (completing-read prompt (expand-keymap keymap)
+                                 :must-match t))))
+      (if (commandp sym)
+          (call-interactively sym)
+          (error "関数が定義されていません: ~A" sym)))))
+
+;;; メニューから文字コード指定して #'revert-buffer
+;;; ファイルに関連付けられていないバッファだとエラーになるのは仕様です
+;;; xyzzy Part7 >>804
+(defun add-menu-revert ()
+  (let ((file-menu (get-menu *app-menu* 'ed::file)))
+    (insert-popup-menu file-menu 8
+                       (make-char-encoding-popup-menu
+                        #'revert-buffer
+                        #'(lambda (e) (and (eq (buffer-fileio-encoding) e) :check)))
+                       "開き直す(&?)")
+    (insert-menu-separator file-menu 8)))
+(add-hook '*init-app-menus-hook* 'add-menu-revert)
 
 ;;; util.l ends here
