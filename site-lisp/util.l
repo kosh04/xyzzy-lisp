@@ -1,7 +1,6 @@
-Ôªø;;; -*- Mode: Lisp; Package: USER; Encoding: UTF-8 -*-
-;;;
-;;; util.l
-;;;
+;;; util.l -*- Mode: Lisp; Package: USER; Encoding: Shift_JIS -*-
+
+;;; This file is NOT part of xyzzy.
 
 (provide "util")
 
@@ -9,15 +8,15 @@
 
 ;;; estartup.l
 (defun load-xyzzyrc ()
-  "$XYZZY/.xyzzy „ÅÆ„É≠„Éº„Éâ"
+  "$XYZZY/.xyzzy ÇÃÉçÅ[Éh"
   (trap-errors
-    (let ((*loading-user-initial-file* t)) ; ‰Ωï„ÅÆÂäπÊûú„Åå?
+    (let ((*loading-user-initial-file* t)) ; âΩÇÃå¯â Ç™?
       (load (merge-pathnames ".xyzzy" (si:system-root))
             :if-does-not-exist nil :verbose nil :print nil))))
 ;; (add-hook '*post-startup-hook* 'load-xyzzyrc)
 
 (defun current-word (&optional highlight?)
-  "„Ç´„Éº„ÇΩ„É´‰ΩçÁΩÆ„Å´„ÅÇ„ÇãÂçòË™û„ÇíËøî„Åó„Åæ„Åô."
+  "ÉJÅ[É\Éãà íuÇ…Ç†ÇÈíPåÍÇï‘ÇµÇ‹Ç∑."
   (save-excursion
     (let* ((syntax (if (standard-char-p (following-char))
                        "w_" "w_jk"))
@@ -32,9 +31,9 @@
             (buffer-substring from to)
           (and highlight? (reverse-region from to t)))))))
 
-;;; XyzzyWiki„Åã„ÇâÊãæ„Å£„Å¶„Åç„Åü„Çì„Å†„Å®ÊÄù„ÅÜ
+;;; XyzzyWikiÇ©ÇÁèEÇ¡ÇƒÇ´ÇΩÇÒÇæÇ∆évÇ§
 (defun recentf-open-files ()
-  "Â±•Ê≠¥„Åã„Çâ„Éï„Ç°„Ç§„É´„ÇíÈñã„Åè"
+  "óöóÇ©ÇÁÉtÉ@ÉCÉãÇäJÇ≠"
   (interactive)
   (let (hlist filename)
     (setq hlist (mapcar #'(lambda (x)
@@ -43,13 +42,13 @@
     (multiple-value-bind (result data)
         (dialog-box
          '(dialog 0 0 286 162
-           ;;(:caption "ÊúÄËøë‰Ωø„Å£„ÅüÔæåÔΩßÔΩ≤Ôæô")
-           (:caption "ÊúÄËøë‰Ωø„Å£„Åü„Éï„Ç°„Ç§„É´")
-           (:font 9 "Ôº≠Ôº≥ Ôº∞„Ç¥„Ç∑„ÉÉ„ÇØ")
+           ;;(:caption "ç≈ãﬂégÇ¡ÇΩÃß≤Ÿ")
+           (:caption "ç≈ãﬂégÇ¡ÇΩÉtÉ@ÉCÉã")
+           (:font 9 "ÇlÇr ÇoÉSÉVÉbÉN")
            (:control
             (:listbox flist nil #x50b10111 7 7 216 148)
             (:button IDOK "OK" #x50010001 229 7 50 14)
-            (:button IDCANCEL "ÔΩ∑ÔΩ¨ÔæùÔΩæÔæô" #x50010000 229 24 50 14)))
+            (:button IDCANCEL "∑¨›æŸ" #x50010000 229 24 50 14)))
          (list (cons 'flist hlist))
          `((flist :must-match t :enable (IDOK))))
       (when result
@@ -59,7 +58,7 @@
 
 #|
 (defun foobar ()
-"ÊúÄËøëÈñã„ÅÑ„Åü„Éï„Ç°„Ç§„É´"
+"ç≈ãﬂäJÇ¢ÇΩÉtÉ@ÉCÉã"
 (interactive)
 (popup-list (subseq *minibuffer-file-name-history* 0 9)
             #'(lambda (file)
@@ -68,8 +67,8 @@
                 (refresh-screen))))
 |#
 
-;;; Èñâ„Åò„Åü„Çø„Éñ„ÇíÂÖÉ„Å´Êàª„Åô„ÄÅ„ÇíËá™ÂàÜÁî®„Å´ÊîπÂ§â
-;;; „ÉÄ„Ç§„Ç¢„É≠„Ç∞‰Ωø„ÅÑ„Åü„ÅÑ
+;;; ï¬Ç∂ÇΩÉ^ÉuÇå≥Ç…ñﬂÇ∑ÅAÇé©ï™ópÇ…â¸ïœ
+;;; É_ÉCÉAÉçÉOégÇ¢ÇΩÇ¢
 ;;; http://white.s151.xrea.com/wiki/index.php?memo%2Fxyzzy%2Ffile#k96261fd
 (defvar *recent-killed-buffers* nil)
 
@@ -81,10 +80,10 @@
 (add-hook '*delete-buffer-hook* 'push-visited-file-recent-killed)
 
 (defun recentf ()
-  "ÊúÄËøëÈñâ„Åò„Åü„Éï„Ç°„Ç§„É´"
+  "ç≈ãﬂï¬Ç∂ÇΩÉtÉ@ÉCÉã"
   (interactive)
   (unless *recent-killed-buffers*
-    (error "ÊúÄËøëÈñâ„Åò„Çâ„Çå„Åü„Éê„ÉÉ„Éï„Ç°„ÅØ„ÅÇ„Çä„Åæ„Åô„Çì"))
+    (error "ç≈ãﬂï¬Ç∂ÇÁÇÍÇΩÉoÉbÉtÉ@ÇÕÇ†ÇËÇ‹Ç∑ÇÒ"))
   (popup-list (subseq *recent-killed-buffers*
                       0 (min (length *recent-killed-buffers*) 9))
               #'(lambda (file)
@@ -94,9 +93,9 @@
                         (delete file *recent-killed-buffers* :test #'equal))
                   (refresh-screen))))
 
-;;; 'si:*trace-on-error* „Å®„Åã„ÇØ„Ç™„Éº„Éà„Åï„Çå„Åü„Ç∑„É≥„Éú„É´„ÅÆÂÄ§„ÇíË©ï‰æ°„Åó„Åü„ÅÑ
+;;; 'si:*trace-on-error* Ç∆Ç©ÉNÉIÅ[ÉgÇ≥ÇÍÇΩÉVÉìÉ{ÉãÇÃílÇï]âøÇµÇΩÇ¢
 (defun get-variable-value ()
-  "ÁèæÂú®„ÅÆ„Éù„Ç§„É≥„Éà‰∏ä„Å´„ÅÇ„Çã„Ç∑„É≥„Éú„É´„ÇíË©ï‰æ°„Åó„Åæ„Åô."
+  "åªç›ÇÃÉ|ÉCÉìÉgè„Ç…Ç†ÇÈÉVÉìÉ{ÉãÇï]âøÇµÇ‹Ç∑."
   (interactive)
   (let ((name (buffer-substring (progn
                                   (skip-syntax-spec-backward "w_")
@@ -111,28 +110,28 @@
                           (values-list (reverse (split-string name ":")))
                         (when sym
                           ;; (find-symbol sym (or (find-package pac) (find-package *buffer-package*) *package*))
-                          ;; ÂÖ®„Å¶„ÅÆ„Ç∑„É≥„Éú„É´Âêç„ÅØË¢´„Çã„Åì„Å®„ÅåÁÑ°„ÅÑ„Å®„ÅÑ„ÅÜÂâçÊèê„ÅÇ„Çä„Åß‰Ωø„ÅÜ
+                          ;; ëSÇƒÇÃÉVÉìÉ{ÉãñºÇÕîÌÇÈÇ±Ç∆Ç™ñ≥Ç¢Ç∆Ç¢Ç§ëOíÒÇ†ÇËÇ≈égÇ§
                           (some (lambda (x) (and (boundp x) x))
                                 (find-all-symbols sym))
                           ))))
           (if (and symbol
                    (boundp symbol))
               (message "~S -> ~S" symbol (symbol-value symbol))
-              (plain-error "Â§âÊï∞„ÅåÂÆöÁæ©„Åï„Çå„Å¶„ÅÑ„Åæ„Åõ„Çì: ~A" name))))))
+              (plain-error "ïœêîÇ™íËã`Ç≥ÇÍÇƒÇ¢Ç‹ÇπÇÒ: ~A" name))))))
 (define-key spec-map #\C-e 'get-variable-value)
 
 (defun kitaa ()
-  "„ÉÜ„É≥„Ç∑„Éß„É≥‰∏ä„Åå„Å£„Å¶„Åç„Åü."
+  "ÉeÉìÉVÉáÉìè„Ç™Ç¡ÇƒÇ´ÇΩ."
   (interactive)
   (let ((kita-list
-         '("(Ôæü‚àÄÔæü)" "( Ôæü‚àÄ)" "(   Ôæü)" "(    )" "(Ôæü   )" "(‚àÄÔæü )" "(Ôæü‚àÄÔæü)")
+         '("(ﬂÅÕﬂ)" "( ﬂÅÕ)" "(   ﬂ)" "(    )" "(ﬂ   )" "(ÅÕﬂ )" "(ﬂÅÕﬂ)")
          ))
     (while (not (listen *keyboard*))
       (dolist (kao kita-list)
-        (minibuffer-message "ÔΩ∑ÔæÄ‚îÅ‚îÅ‚îÅ~A‚îÅ‚îÅ‚îÅ!!!!" kao)
+        (minibuffer-message "∑¿Ñ™Ñ™Ñ™~AÑ™Ñ™Ñ™!!!!" kao)
         (sit-for .1)))))
 
-;; „Éê„ÉÉ„Éï„Ç°„ÇÇ‰øùÂ≠ò„Åô„Çã„Åπ„ÅçÔºü
+;; ÉoÉbÉtÉ@Ç‡ï€ë∂Ç∑ÇÈÇ◊Ç´ÅH
 (defmacro with-syntax-table (table &body body)
   `(let ((#1=#:syntab (syntax-table)))
      (unwind-protect
@@ -141,7 +140,7 @@
 (setf (get 'with-syntax-table 'ed:lisp-indent-hook) 1)
 
 ;;; $EMACS/lisp/comint.el
-;;; (point) „Åå EOF „Å™„Çâ„Éó„É≠„Çª„ÇπÁµÇ‰∫Ü
+;;; (point) Ç™ EOF Ç»ÇÁÉvÉçÉZÉXèIóπ
 (defun comit-delchar-or-maybe-eof (&optional arg)
   "Delete ARG characters forward or send an EOF to subprocess.
 Sends an EOF only if point is at the end of the buffer and there is no input."
@@ -156,7 +155,7 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
       (delete-char arg))))
 (define-key *shell-mode-map* #\C-d 'comit-delchar-or-maybe-eof)
 
-;; slime-repl-bol„Çà„Çä
+;; slime-repl-bolÇÊÇË
 (defun ed::shell-goto-bol ()
   (interactive)
   (let ((point-at-bol (save-excursion (goto-bol) (point)))
@@ -188,14 +187,14 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
 ;; (global-set-key '(#\C-x #\n #\n) 'narrow-to-region)
 ;; (global-set-key '(#\C-x #\n #\w) 'widen)
 
-;;; transient-mark-mode „ÇÇ„Å©„Åç
+;;; transient-mark-mode Ç‡Ç«Ç´
 (defun keyboard-quit ()
   (interactive)
-  (set-mark t)                  ; „Éû„Éº„ÇØ„Çí„ÇØ„É™„Ç¢ (ChangeLog Version 0.1.0.107)
+  (set-mark t)                  ; É}Å[ÉNÇÉNÉäÉA (ChangeLog Version 0.1.0.107)
   (error 'quit))
 (global-set-key #\C-g 'keyboard-quit)
 
-;; Êú´Â∞æ„ÅÆÊîπË°å„ÇÇËÄÉÊÖÆ„Åô„Çã„Å™„Çâread-line„ÅØÂ§öÂÄ§„Åß„Å®„Çã„Åπ„Åç
+;; ññîˆÇÃâ¸çsÇ‡çló∂Ç∑ÇÈÇ»ÇÁread-lineÇÕëΩílÇ≈Ç∆ÇÈÇ◊Ç´
 (defun cat (file &optional stream)
   "print FILE contents to STREAM (default *standard-output*)."
   (with-open-file (fp file :direction :input)
@@ -216,35 +215,11 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
       (and outfile (delete-file outfile)))))
 
 (defun command-substitution (command)
-  "Â§ñÈÉ®„Ç≥„Éû„É≥„Éâ„ÅÆÁµêÊûú„ÇíÊñáÂ≠óÂàó„Å´„Åó„Å¶Ëøî„Åó„Åæ„Åô."
+  "äOïîÉRÉ}ÉìÉhÇÃåãâ Çï∂éöóÒÇ…ÇµÇƒï‘ÇµÇ‹Ç∑."
   (string-right-trim '(#\SPC #\TAB #\LFD)
     (shell-command-to-string command)))
 
-(defun get-file-infomation (file)
-  "„Éï„Ç°„Ç§„É´„ÅÆ„Éó„É≠„Éë„ÉÜ„Ç£„ÇíË°®Á§∫„Åó„Åæ„Åô„ÄÇ"
-  (interactive "fFile info: " :default0 (get-buffer-file-name))
-  (multiple-value-bind (attr write-time size short-path)
-      (values-list (get-file-info file))
-    (message "~{~A~^ ~}"	; ls -l „ÅÆÊõ∏Âºè„Å©„Çì„Å™„Å†„Å£„Åë?
-             (list
-              (file-attribute-to-string attr)            ; Â±ûÊÄß
-              size                                       ; „Çµ„Ç§„Ç∫
-              (format-date-string "%Y-%m-%d" write-time) ; Êõ¥Êñ∞Êó•ÊôÇ
-              (file-namestring file)                     ; „Éï„Ç°„Ç§„É´Âêç
-              ))))
-
-(defun file-attribute-to-string (attr)
-  "attrib /? ÂèÇÁÖß"
-  (concat
-   (if (zerop (logand attr ed::*file-attribute-directory*))  "-" "D") ; „Éá„Ç£„É¨„ÇØ„Éà„É™
-   (if (zerop (logand attr ed::*file-attribute-readonly*))   "-" "R") ; Ë™≠„ÅøÂèñ„ÇäÂ∞ÇÁî®
-   (if (zerop (logand attr ed::*file-attribute-archive*))    "-" "A") ; „Ç¢„Éº„Ç´„Ç§„Éñ
-   (if (zerop (logand attr ed::*file-attribute-hidden*))     "-" "H") ; Èö†„Åó„Éï„Ç°„Ç§„É´
-   (if (zerop (logand attr ed::*file-attribute-system*))     "-" "S") ; „Ç∑„Çπ„ÉÜ„É†
-   (if (zerop (logand attr ed::*file-attribute-compressed*)) "-" "C") ; ÂúßÁ∏Æ?
-   ))
-
-;; ÊØéÂ∫¶ÊØéÂ∫¶ do-all-symbols „ÅØÊôÇÈñì„Åå„Åã„Åã„Çã„ÅÆ„Åß„Ç≠„É£„ÉÉ„Ç∑„É•„ÅßË™§È≠îÂåñ„Åô
+;; ñàìxñàìx do-all-symbols ÇÕéûä‘Ç™Ç©Ç©ÇÈÇÃÇ≈ÉLÉÉÉbÉVÉÖÇ≈åÎñÇâªÇ∑
 (defvar *keymaplist* nil)
 
 (defun keymaplist (&optional force-update)
@@ -256,7 +231,7 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
             (push sym *keymaplist*)))))
 
 (defun describe-binding-anymap (keymap)
-  "‰ªªÊÑè„ÅÆ„Ç≠„Éº„Éû„ÉÉ„Éó„ÅÆÂâ≤„ÇäÂΩì„Å¶‰∏ÄË¶ß„ÇíË°®Á§∫."
+  "îCà”ÇÃÉLÅ[É}ÉbÉvÇÃäÑÇËìñÇƒàÍóóÇï\é¶."
   (interactive (find-all-symbols
                 (completing-read "Describe binding: "
                                  (keymaplist)
@@ -267,23 +242,22 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
     (goto-char (point-min))
     (toggle-read-only t)))
 
-;; ed::build-summary-function „Çí2Âõû„ÇÇÂëº„Å≥Âá∫„Åô„ÅÆ„ÅØ‰Ωï„Åã„ÇÑ„Å†„Å™
+;; ed::build-summary-function Ç2âÒÇ‡åƒÇ—èoÇ∑ÇÃÇÕâΩÇ©Ç‚ÇæÇ»
 (defun goto-function (fn)
-  "see `imenu.el'"
   (interactive
       (list (if (boundp 'ed::build-summary-function)
                 (completing-read "Function: "
                                  (or (mapcar #'cadr (funcall ed::build-summary-function))
                                      (error "Function Not Found"))
                                  :must-match t)
-                (error "Èñ¢Êï∞„Å™„ÅÑ„Çà"))))
+                (error "ä÷êîÇ»Ç¢ÇÊ"))))
   (let* ((summary (funcall ed::build-summary-function))
          (fnlst (mapcar #'cadr summary))
          (nlst  (mapcar #'car summary)))
     (goto-line (nth (position fn fnlst :test #'equal) nlst))))
 (define-key spec-map #\C-l 'goto-function)
 
-;;; (require "paren") „Å®„Åã„Å´„ÇÇ„Åù„Çå„Å™„Çä„Å´ÂØæÂøú
+;;; (require "paren") Ç∆Ç©Ç…Ç‡ÇªÇÍÇ»ÇËÇ…ëŒâû
 (defun ffap-find-file (filename)
   "find file at point."
   (interactive "fFind-file: " :default0 (pathname-at-point *prefix-args*))
@@ -308,7 +282,7 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
                               (append-trail-slash (namestring word))
                               (namestring word)))
                          (arg
-                          ;; Áí∞Â¢ÉÂ§âÊï∞„Åã„ÇâÊ§úÁ¥¢
+                          ;; ä¬ã´ïœêîÇ©ÇÁåüçı
                           (some #'(lambda (dir)
                                     (let ((x (merge-pathnames word dir)))
                                       (when (file-exist-p x)
@@ -327,10 +301,10 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
           (and path (reverse-region from to t))
           (set-default-directory odir))))))
 
-;;; xyzzy „Çπ„É¨ >>383
+;;; xyzzy ÉXÉå >>383
 ;;; http://yasai.2ch.net/win/kako/979/979930156.html#383
 (defun colortest ()
-  "Áï™Âè∑„Å®Ëâ≤„ÅÆÂØæÂøúÁ¢∫Ë™ç„ÄÇ(ÂâçÊôØËâ≤:ËÉåÊôØËâ≤)"
+  "î‘çÜÇ∆êFÇÃëŒâûämîFÅB(ëOåiêF:îwåiêF)"
   (interactive)
   (let ((obuffer (selected-buffer)))
     (with-output-to-temp-buffer (" *ColorTest*" t)
@@ -345,14 +319,14 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
       (goto-char (point-min)))
     (pop-to-buffer obuffer)))
 
-;; „Çà„ÅèÂàÜ„Åã„Çâ„Å™„ÅÑ
+;; ÇÊÇ≠ï™Ç©ÇÁÇ»Ç¢
 (defconstant text-color-list
   '(none red green yellow blue purple cyan white black brown olive
-    ocher azure violet ÊµÖËë±Ëâ≤Ôºü gray)
-  "set-text-attribute „Å™„Å©„Åß‰Ωø„Åà„ÇãËâ≤„ÅÆÈ†ÜÁï™.")
+    ocher azure violet êÛîKêFÅH gray)
+  "set-text-attribute Ç»Ç«Ç≈égÇ¶ÇÈêFÇÃèáî‘.")
 
 (defun find-library (lib)
-  "*load-path* „ÅÆ‰∏≠„Åã„ÇâÈÅ©ÂΩì„Å´ÈÅ∏„Çì„ÅßÈñã„Åè."
+  "*load-path* ÇÃíÜÇ©ÇÁìKìñÇ…ëIÇÒÇ≈äJÇ≠."
   (interactive (list (read-exist-library "Find library: ")))
   (let ((file (find-load-path lib)))
     (when file
@@ -374,11 +348,11 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
 
 (global-set-key '(#\C-c #\f) 'find-library)
 
-;;; „Éü„Éã„Éê„ÉÉ„Éï„Ç°ÂÜÖ„ÅßÂçòË™ûÂâäÈô§
+;;; É~ÉjÉoÉbÉtÉ@ì‡Ç≈íPåÍçÌèú
 ;; http://white.s151.xrea.com/wiki/index.php?memo%2Fxyzzy%2Fminibuffer#w95b8c17
 ;; http://xyzzy.s53.xrea.com/wiki/index.php?tips%2F%A5%DF%A5%CB%A5%D0%A5%C3%A5%D5%A5%A1%A4%C7%A4%D2%A4%C8%A4%C4%BE%E5%A4%CE%A5%C7%A5%A3%A5%EC%A5%AF%A5%C8%A5%EA%A4%D8
 (defun delete-word (&optional (arg 1))
-  "*kill-ring*„Å´ËøΩÂä†„Åó„Å™„ÅÑÂçòË™ûÂâäÈô§"
+  "*kill-ring*Ç…í«â¡ÇµÇ»Ç¢íPåÍçÌèú"
   (interactive "*p")
   (delete-region (point) (progn (forward-word arg) (point))))
 (defun backward-delete-word (&optional (arg 1))
@@ -390,10 +364,10 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
                       minibuffer-local-map))
   (define-key keymap #\C-w 'backward-delete-word))
 
-;;; „Éï„Ç°„Ç§„É´Âêç„ÅÆ„Å™„ÅÑ„Éê„ÉÉ„Éï„Ç°„Åß„ÅÆ 'save-buffer „ÅÆ„Ç®„É©„Éº„Çí„Éû„Ç§„É´„Éâ„Å´
+;;; ÉtÉ@ÉCÉãñºÇÃÇ»Ç¢ÉoÉbÉtÉ@Ç≈ÇÃ 'save-buffer ÇÃÉGÉâÅ[ÇÉ}ÉCÉãÉhÇ…
 (add-hook '*save-buffer-no-filenames-hook*
           (defun no-filenames-error ()
-            (plain-error "„Éï„Ç°„Ç§„É´Âêç„Åå„ÅÇ„Çä„Åæ„Åõ„Çì")))
+            (plain-error "ÉtÉ@ÉCÉãñºÇ™Ç†ÇËÇ‹ÇπÇÒ")))
 
 (defun show-arglist (symbol)
   (interactive "SArglist: ")
@@ -433,20 +407,20 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
            (cadr fn)))))
 
 (defun pwd ()
-  "‰ΩúÊ•≠‰∏≠„ÅÆ„Éá„Ç£„É¨„ÇØ„Éà„É™."
+  "çÏã∆íÜÇÃÉfÉBÉåÉNÉgÉä."
   (if (file-visited-p)
       (directory-namestring (get-buffer-file-name))
       (default-directory)))
 
 (in-package "editor")
 (defun message! (fmt &rest args)
-  "„É°„ÉÉ„Çª„Éº„Ç∏„ÇíË°®Á§∫„Åô„Çã„Å§„ÅÑ„Åß„Å´Èü≥„ÇÇÈ≥¥„Çâ„Åó„Åæ„Åô."
+  "ÉÅÉbÉZÅ[ÉWÇï\é¶Ç∑ÇÈÇ¬Ç¢Ç≈Ç…âπÇ‡ñ¬ÇÁÇµÇ‹Ç∑."
   (ding)
   (apply #'message fmt args))
 (export 'message!)
 (in-package "user")
 
-;;; tips/„Éï„Ç°„Ç§„É´„ÅÆÊöóÂè∑Âåñ(Rijndael) „Çà„Çä
+;;; tips/ÉtÉ@ÉCÉãÇÃà√çÜâª(Rijndael) ÇÊÇË
 ;;; http://xyzzy.s53.xrea.com/wiki/index.php?cmd=read&page=tips%2F%A5%D5%A5%A1%A5%A4%A5%EB%A4%CE%B0%C5%B9%E6%B2%BD(Rijndael)
 (defmacro with-temp-file ((temp-file) &body body)
   `(let ((,temp-file ,(make-temp-file-name)))
@@ -456,53 +430,58 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
 (setf (get 'with-temp-file 'ed:lisp-indent-hook) 1)
 ;; (with-temp-file (dest) (truename dest)) => "C:/tmp/~xyzirtx.tmp"
 
+(defun buffer-list-if (fn)
+  "FNÇñûÇΩÇ∑ÉoÉbÉtÉ@ÇÃÉäÉXÉgÇï‘ÇµÇ‹Ç∑."
+  (remove-if-not fn (buffer-list)))
+
 (defun process-list ()
-  "„Éê„ÉÉ„Éï„Ç°„Éó„É≠„Çª„Çπ„ÅÆ„É™„Çπ„Éà."
-  (remove-if (complement #'processp)
-             (mapcar #'buffer-process (buffer-list))))
+  "ÉoÉbÉtÉ@ÉvÉçÉZÉXÇÃÉäÉXÉg."
+  ;; (remove-if-not #'processp (mapcar #'buffer-process (buffer-list)))
+  (mapcar #'buffer-process
+          (buffer-list-if #'buffer-process)))
 
 (defun running-process-exist-p ()
-  "Âãï‰Ωú‰∏≠„ÅÆ„Éó„É≠„Çª„Çπ„Åå„ÅÇ„Çã„Åã."
+  "ìÆçÏíÜÇÃÉvÉçÉZÉXÇ™Ç†ÇÈÇ©."
   (some #'(lambda (pid)
             (eq (process-status pid) :run))
         (process-list)))
 
 ;; (remove-if-not #'need-buffer-save-p (buffer-list))
 (defun modified-buffer-exist-p ()
-  "‰øùÂ≠ò„Åô„ÇãÂøÖË¶Å„ÅÆ„ÅÇ„Çã„Éê„ÉÉ„Éï„Ç°„Åå„ÅÇ„Çã„Åã."
+  "ï€ë∂Ç∑ÇÈïKóvÇÃÇ†ÇÈÉoÉbÉtÉ@Ç™Ç†ÇÈÇ©."
   (/= (count-modified-buffers) 0))
 
 (defun delete-dump-and-compile-siteinit ()
   (delete-file (si:dump-image-path) :if-does-not-exist :skip)
   (let ((siteinit (find-load-path "siteinit")))
     (when (and siteinit (string-match "\\.lc$" siteinit))
-      ;; *.lc „ÅåÂ≠òÂú®„Åó„Å¶ *.l „ÅåÂ≠òÂú®„Åó„Å™„ÅÑ„Å™„Çì„Å¶ÂèØËÉΩÊÄß„Åå„ÅÇ„Çã„Çì„Å†„Åå
+      ;; *.lc Ç™ë∂ç›ÇµÇƒ *.l Ç™ë∂ç›ÇµÇ»Ç¢Ç»ÇÒÇƒâ¬î\ê´Ç™Ç†ÇÈÇÒÇæÇ™
       (trap-errors (compile-file (substring siteinit 0 -1))))))
 
-;;; Áí∞Â¢ÉÂ§âÊï∞„ÅÆÂ§âÊõ¥„ÅåÂèçÊò†„Åï„Çå„Å™„ÅÑ„ÅÆ„ÅØ„Åó„Çá„ÅÜ„Åå„Å™„ÅÑ„ÅÆ„Åã
-;;; [Ê≥®ÊÑè]
-;;; (kill-xyzzy)„Åô„ÇãÊôÇ„Å´yes-no-or-cancel-p/yes-or-no-p„Å´Âºï„Å£„Åã„Åã„Çã„Å®„Ç§„É§„Å´„Å™„Çã
-;;; [Èñ¢ÈÄ£„Åô„Çã„ÇÇ„ÅÆ] „Éê„ÉÉ„Éï„Ç°„Éó„É≠„Çª„Çπ„ÄÅ‰øùÂ≠ò„ÄÅÊéí‰ªñÂà∂Âæ°
+;;; ä¬ã´ïœêîÇÃïœçXÇ™îΩâfÇ≥ÇÍÇ»Ç¢ÇÃÇÕÇµÇÂÇ§Ç™Ç»Ç¢ÇÃÇ©
+;;; [íçà”]
+;;; (kill-xyzzy)Ç∑ÇÈéûÇ…yes-no-or-cancel-p/yes-or-no-pÇ…à¯Ç¡Ç©Ç©ÇÈÇ∆ÉCÉÑÇ…Ç»ÇÈ
+;;; [ä÷òAÇ∑ÇÈÇ‡ÇÃ] ÉoÉbÉtÉ@ÉvÉçÉZÉXÅAï€ë∂ÅAîrëºêßå‰
 ;;; (need-buffer-save-p buf) (verify-buffers-file-modtime) (buffer-modified-p &optional buf)
-;;; *kill-xyzzy-hook*„Å´ÊôÇÈñì„Çí„Åã„Åë„Çã„Å®„Åæ„Åö„ÅÑ„Åã„ÇÇ„Å≠ -> ÂÖà„Å´ÂÆüË°å„Åï„Åõ„Å¶„Åä„Åì„ÅÜ
+;;; *kill-xyzzy-hook*Ç…éûä‘ÇÇ©ÇØÇÈÇ∆Ç‹Ç∏Ç¢Ç©Ç‡ÇÀ -> êÊÇ…é¿çsÇ≥ÇπÇƒÇ®Ç±Ç§
 (defun reboot-xyzzy (&optional cleanup)
-  "xyzzy„ÇíÂÜçËµ∑Âãï„Åô„Çã."
+  "xyzzyÇçƒãNìÆÇ∑ÇÈ."
   (interactive "P")
   ;; (save-some-buffers)
   (cond ((and *query-kill-xyzzy-hook*
               (null (run-hook-with-args-while-success '*query-kill-xyzzy-hook*)))
          (return-from reboot-xyzzy))
-        ((modified-buffer-exist-p) (error "‰øùÂ≠ò„Çí„Åó„Çà„ÅÜ„ÄÅ„Å™ÔºÅ"))
-        ((running-process-exist-p) (error "„Çµ„Éñ„Éó„É≠„Çª„Çπ„ÅåËµ∞„Å£„Å¶„Çã„Åß")))
+        ((modified-buffer-exist-p) (error "ï€ë∂ÇÇµÇÊÇ§ÅAÇ»ÅI"))
+        ((running-process-exist-p) (error "ÉTÉuÉvÉçÉZÉXÇ™ëñÇ¡ÇƒÇÈÇ≈")))
   (when cleanup
     (delete-dump-and-compile-siteinit))
   (run-hooks '*kill-xyzzy-hook*)
   (let ((*kill-xyzzy-hook* nil)
         (*query-kill-xyzzy-hook* nil))
     (and (call-process (merge-pathnames "xyzzy.exe" (si:system-root))
-                       ;; Áí∞Â¢ÉÂ§âÊï∞„ÅÆË®≠ÂÆö
+                       ;; ä¬ã´ïœêîÇÃê›íË
                        :environ `(("XYZZYHOME" . ,(si:system-root))
-                                  ;; Ë®≠ÂÆö„Éï„Ç°„Ç§„É´ (xyzzy.iniÁ≠â) „ÅÆ„Éá„Ç£„É¨„ÇØ„Éà„É™
+                                  ;; ê›íËÉtÉ@ÉCÉã (xyzzy.iniìô) ÇÃÉfÉBÉåÉNÉgÉä
                                   ("XYZZYCONFIGPATH" . ,(user-config-path)))
                        :no-std-handles t
                        :exec-directory (si:system-root)
@@ -510,7 +489,7 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
                        :wait nil)
          (kill-xyzzy))))
 
-;;; @@describe„Ç∑„É™„Éº„Ç∫
+;;; @@describeÉVÉäÅ[ÉY
 
 (defun symbol-describe (symbol)
   `((:name     ,(symbol-name symbol))
@@ -546,7 +525,7 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
     (:used-by-list      ,(package-used-by-list package))))
 
 (defun radix-list (n)
-  "NÈÄ≤Êï∞Ë°®."
+  "Nêiêîï\."
   `((:bin ,(format nil "#b~B" n))
     (:oct ,(format nil "#o~O" n))
     (:dec ,(format nil   "~D" n))
@@ -562,14 +541,14 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
                 #+xyzzy nil)))
 
 (defun encoding-names (encoding)
-  "ÊñáÂ≠ó„Ç®„É≥„Ç≥„Éº„Éá„Ç£„É≥„Ç∞ENCODING„ÅÆÂêçÂâç‰∏ÄË¶ß„ÇíËøî„Åô."
+  "ï∂éöÉGÉìÉRÅ[ÉfÉBÉìÉOENCODINGÇÃñºëOàÍóóÇï‘Ç∑."
   `((:display-name ,(char-encoding-display-name encoding))
     (:name         ,(char-encoding-name encoding))
     (:misc         ,(cdr (assoc encoding ed:*character-set-alist*
                                 :key #'symbol-value)))))
 
 (defun refwiki-symbol->url (symbol &optional and-go)
-  "SYMBOL„ÇíÂèÇÁÖß„Åô„Çãrefwiki„ÅÆURL„ÇíËøî„Åô."
+  "SYMBOLÇéQè∆Ç∑ÇÈrefwikiÇÃURLÇï‘Ç∑."
   (interactive "Srefwiki: " :default0 (current-word t))
   (let ((url (concat "http://xyzzy.s53.xrea.com/reference/wiki.cgi?p="
                      (symbol-name symbol))))
@@ -579,7 +558,7 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
            (format t "~A" url)))))
 
 (defun toggle-read-only-colorful (&optional (arg nil sv))
-  "Êõ∏Ëæº„ÅøÁ¶ÅÊ≠¢„Éê„ÉÉ„Éï„Ç°„ÇíËâ≤‰ªò„Åë„ÅßÂå∫Âà•„Åô„Çã."
+  "èëçûÇ›ã÷é~ÉoÉbÉtÉ@ÇêFïtÇØÇ≈ãÊï Ç∑ÇÈ."
   (interactive "p")
   (toggle-read-only)
   (if buffer-read-only
@@ -588,7 +567,7 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
 ;; (global-set-key '(#\C-x #\C-q) 'toggle-read-only-colorful)
 
 (defun get-window-end-line ()
-  "„Ç¶„Ç£„É≥„Éâ„Ç¶„ÅÆÂæåÂ∞æË°å"
+  "ÉEÉBÉìÉhÉEÇÃå„îˆçs"
   (if (pos-visible-in-window-p (point-max))
       (buffer-lines)
       (+ (window-lines) (get-window-start-line))))
@@ -605,11 +584,11 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
   (switch-to-buffer buffer))
 
 (defun point-of (fn &rest args)
-  "Èñ¢Êï∞FN„ÇíÂëº„Å≥Âá∫„Åó„ÅüÂæå„ÅÆ„Éù„Ç§„É≥„Éà‰ΩçÁΩÆ„ÇíËøî„Åô."
+  "ä÷êîFNÇåƒÇ—èoÇµÇΩå„ÇÃÉ|ÉCÉìÉgà íuÇï‘Ç∑."
   (save-excursion (apply fn args) (point)))
 ;; (point-of #'(lambda () (goto-char (point-min)))) ;=> 0
 
-;; ÂØæÊã¨ÂºßÂÖ•ÂäõÊ¥æ„Å´„ÅØ„ÅÇ„Åæ„ÇäÂøÖË¶Å„Åå„Å™„ÅÑ„Åë„Å©
+;; ëŒäáå ì¸óÕîhÇ…ÇÕÇ†Ç‹ÇËïKóvÇ™Ç»Ç¢ÇØÇ«
 (defun close-all-parens-in-sexp ()
   (interactive "*")
   (while (save-excursion (backward-up-list 1 'noerror))
@@ -676,7 +655,7 @@ On nonblank line, delete any immediately following blank lines."
 (global-set-key '(#\C-x #\C-o) 'emacs-delete-blank-lines)
 
 (defun indent-line-sexp ()
-  "Èï∑„ÅÑ‰∏ÄË°åSÂºè„Çí„Åù„Çå„Å™„Çä„Å´„Ç§„É≥„Éá„É≥„Éà„Åó„Åæ„Åô."
+  "í∑Ç¢àÍçsSéÆÇÇªÇÍÇ»ÇËÇ…ÉCÉìÉfÉìÉgÇµÇ‹Ç∑."
   (interactive)
   (labels ((putnl (from to)
              (save-excursion
@@ -707,7 +686,7 @@ On nonblank line, delete any immediately following blank lines."
                                           (forward-sexp)
                                           (point)))
                       nil nil))
-                   (error "Â±ïÈñã„Åô„Çã„Åπ„Åç„Éï„Ç©„Éº„É†„ÅåË¶ã„Å§„Åã„Çä„Åæ„Åõ„Çì")))
+                   (error "ìWäJÇ∑ÇÈÇ◊Ç´ÉtÉHÅ[ÉÄÇ™å©Ç¬Ç©ÇËÇ‹ÇπÇÒ")))
          (*print-circle* t)
          (expand (handler-case
                      (funcall (if repeatedly
@@ -722,29 +701,29 @@ On nonblank line, delete any immediately following blank lines."
       (indent-line-sexp))))
 (global-set-key '(#\C-c #\C-m) 'xyzzy-macroexpand-1) ; C-c RET
 
-;; (name-encoding "Shift_JIS") => #.(make-sjis-encoding "sjis" "Êó•Êú¨Ë™û(Shift_JIS)") ; t
+;; (name-encoding "Shift_JIS") => #.(make-sjis-encoding "sjis" "ì˙ñ{åÍ(Shift_JIS)") ; t
 (defun name-encoding (name)
-  "NAME„Å´ÂØæÂøú„Åô„ÇãÊñáÂ≠ó„Ç≥„Éº„Éâ„Ç™„Éñ„Ç∏„Çß„ÇØ„Éà„ÇíËøî„Åó„Åæ„Åô."
+  "NAMEÇ…ëŒâûÇ∑ÇÈï∂éöÉRÅ[ÉhÉIÉuÉWÉFÉNÉgÇï‘ÇµÇ‹Ç∑."
   (gethash name *mime-charset-name-hash-table*))
 
 ;; Help
 (defvar help-map (make-sparse-keymap))
 (setf (symbol-function 'help-command-prefix) help-map)
 (global-set-key #\F1 'help-command-prefix)
-(define-key help-map #\A 'user::imm-apropos) ; or 'apropos
-(define-key help-map #\a 'user::imm-command-apropos) ; 'command-apropos
+(define-key help-map #\A 'user::imm-apropos)           ; 'apropos
+(define-key help-map #\a 'user::imm-command-apropos)   ; 'command-apropos
 (define-key help-map #\b 'user::imm-describe-bindings) ; 'describe-bindings
 (define-key help-map #\c 'describe-key-briefly)
 (define-key help-map #\f 'describe-function)
 (define-key help-map #\i 'ed:info)
-(define-key help-map #\k 'user::imm-describe-key) ; 'describe-key
+(define-key help-map #\k 'user::imm-describe-key)      ; 'describe-key
 (define-key help-map #\l 'view-lossage)
 (define-key help-map #\v 'describe-variable)
 (define-key help-map #\F1 'show-html-help)
 (define-key help-map #\? 'call-help-list)
 
 (define-key help-map #\C-a 'about-dialog)
-(define-key help-map #\q 'quit) ; help-quit
+(define-key help-map #\q 'quit)                        ; help-quit
 
 (defun call-help-list ()
   (interactive)
@@ -768,10 +747,10 @@ On nonblank line, delete any immediately following blank lines."
                                  :must-match t))))
       (if (commandp sym)
           (call-interactively sym)
-          (error "Èñ¢Êï∞„ÅåÂÆöÁæ©„Åï„Çå„Å¶„ÅÑ„Åæ„Åõ„Çì: ~A" sym)))))
+          (error "ä÷êîÇ™íËã`Ç≥ÇÍÇƒÇ¢Ç‹ÇπÇÒ: ~A" sym)))))
 
-;;; „É°„Éã„É•„Éº„Åã„ÇâÊñáÂ≠ó„Ç≥„Éº„ÉâÊåáÂÆö„Åó„Å¶ #'revert-buffer
-;;; „Éï„Ç°„Ç§„É´„Å´Èñ¢ÈÄ£‰ªò„Åë„Çâ„Çå„Å¶„ÅÑ„Å™„ÅÑ„Éê„ÉÉ„Éï„Ç°„Å†„Å®„Ç®„É©„Éº„Å´„Å™„Çã„ÅÆ„ÅØ‰ªïÊßò„Åß„Åô
+;;; ÉÅÉjÉÖÅ[Ç©ÇÁï∂éöÉRÅ[ÉhéwíËÇµÇƒ #'revert-buffer
+;;; ÉtÉ@ÉCÉãÇ…ä÷òAïtÇØÇÁÇÍÇƒÇ¢Ç»Ç¢ÉoÉbÉtÉ@ÇæÇ∆ÉGÉâÅ[Ç…Ç»ÇÈÇÃÇÕédólÇ≈Ç∑
 ;;; xyzzy Part7 >>804
 (defun add-menu-revert ()
   (let ((file-menu (get-menu *app-menu* 'ed::file)))
@@ -779,8 +758,34 @@ On nonblank line, delete any immediately following blank lines."
                        (make-char-encoding-popup-menu
                         #'revert-buffer
                         #'(lambda (e) (and (eq (buffer-fileio-encoding) e) :check)))
-                       "Èñã„ÅçÁõ¥„Åô(&?)")
+                       "äJÇ´íºÇ∑(&?)")
     (insert-menu-separator file-menu 8)))
 (add-hook '*init-app-menus-hook* 'add-menu-revert)
+
+;;; *scratch* Ç xyzzy èIóπéûÇ…ï€ë∂
+(defun save-scratch-buffer ()
+  (save-excursion
+    (set-buffer (get-buffer-create "*scratch*"))
+    (unless (zerop (buffer-size))
+      (write-file (merge-pathnames ".scratch.l" (si:system-root)) t))))
+(add-hook '*kill-xyzzy-hook* 'save-scratch-buffer)
+
+(defun toggle-scratch-buffer (&optional popup)
+  (interactive "P")
+  (labels ((window-buffer-list ()
+             (mapcar #'second (third (current-window-configuration)))))
+    (let ((scratch (get-buffer-create "*scratch*")))
+      (if (or popup (find scratch (window-buffer-list)))
+          (pop-to-buffer scratch t)
+          (set-buffer scratch))
+      ;; (funcall *initial-buffer-mode*)
+      )))
+(global-set-key '(#\C-x #\t #\s) 'toggle-scratch-buffer)
+
+(defun tail-f-console (filename)
+  (interactive "ftail-f: " :title0 "tail-f")
+  (launch-application (format nil "~A ~A"
+                              (merge-pathnames "tail-f.exe" *etc-path*)
+                              filename)))
 
 ;;; util.l ends here

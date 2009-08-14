@@ -1,8 +1,8 @@
-;;; -*- Mode: Lisp; Package: EDITOR; Encoding: UTF-8 -*-
-;;;
-;;; This file is NOT part of xyzzy.
+;;; -*- Mode: Lisp; Package: USER; Encoding: Shift_JIS -*-
 
-;;; ã¦ãã¨ãƒ¼ä½œã‚Šã‹ã‘ã§ã™
+;;; cygwin.l --- xyzzy‚©‚çcygwin‚ÌƒRƒ}ƒ“ƒh‚ğˆµ‚¤‚à‚Ì (‚©‚È‚èì‚è‚©‚¯)
+
+;; This file is NOT part of xyzzy.
 
 (provide "cygwin")
 
@@ -12,12 +12,15 @@
 (export '(run-cygwin-console shell-on-cygwin cygpath))
 
 (defvar *cygwin-root* "C:/cygwin/"
-  "cygwinã®ãƒ«ãƒ¼ãƒˆãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒª")
+  "cygwin‚Ìƒ‹[ƒgƒfƒBƒŒƒNƒgƒŠ")
 
-;;; shellã®åˆ‡ã‚Šæ›¿ãˆ
-;;; /etc/profile ã® cd "${HOME}" å‘¨è¾ºã‚’ã‚³ãƒ¡ãƒ³ãƒˆã‚¢ã‚¦ãƒˆã™ã‚‹
-;;; ãŸã ã— bash --login ã§ã¯åˆ¶å¾¡æ–‡å­—ã‚’å‡¦ç†ã§ããªã„
-;; (setq *eshell* "bash --login -i")  ;; ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆã¯cmd.exe
+(defvar *cygwin-environment-alist* '(("LANG" . "C"))
+  "cygwin‚ÌŠÂ‹«•Ï”")
+
+;;; shell‚ÌØ‚è‘Ö‚¦
+;;; /etc/profile ‚Ì cd "${HOME}" ü•Ó‚ğƒRƒƒ“ƒgƒAƒEƒg‚·‚é
+;;; ‚½‚¾‚µ bash --login ‚Å‚Í§Œä•¶š‚ğˆ—‚Å‚«‚È‚¢
+;; (setq *eshell* "bash --login -i")  ;; ƒfƒtƒHƒ‹ƒg‚Ícmd.exe
 (defun run-cygwin-console (&optional login)
   (interactive "P")
   (if login
@@ -25,7 +28,7 @@
       (launch-application (cygpath "/bin/bash -i"))))
 
 (defun shell-on-cygwin ()
-  "xyzzy ã®ãƒãƒƒãƒ•ã‚¡ã‹ã‚‰ bash ã‚’æ“ä½œã—ã¾ã™ã€‚"
+  "xyzzy ‚Ìƒoƒbƒtƒ@‚©‚ç bash ‚ğ‘€ì‚µ‚Ü‚·B"
   (interactive)
   (set-buffer (get-buffer-create "*Bash*"))
   (let ((*eshell* "bash -i")
@@ -37,26 +40,189 @@
     (make-process *eshell*
                   :output (selected-buffer)
                   :environ '(("PS1" . "[\\u@\\h:\\w]\\n\\$ "))
-                  ;;:incode
+                  :incode *encoding-euc-jp*
                   :eol-code *eol-guess*
                   )
     ))
 
-;;; UN*X ã®ãƒãƒ‹ãƒ¥ã‚¢ãƒ«ã‚’è¦‹ã‚‹
-;;; å‚è€ƒ: $EMACS/lisp/man.el
-;;; "LANG=C man man | [col -b | colcrt]" ã‚’ä½¿ã†æ–¹æ³•ã‚‚ã‚ã‚‹
+
+;;; ‚Ö‚È‚¿‚å‚± less ƒ‚[ƒh
+(export 'less-mode)
+
+(pushnew '(less-mode . "Less") *minor-mode-alist* :key #'car)
+(defvar-local less-mode nil)
+
+(defun less-mode (&optional (arg nil sv))
+  (interactive "p")
+  (ed::toggle-mode 'less-mode arg sv)
+  (if less-mode
+      (set-minor-mode-map *less-mode-map*)
+      (unset-minor-mode-map *less-mode-map*))
+  (toggle-read-only less-mode)
+  (update-mode-line t))
+
+(defvar *less-mode-map* nil)
+(unless *less-mode-map*
+  (setf *less-mode-map* (make-sparse-keymap))
+  (mapc (lambda (x)
+          (let ((keys (mapcar #'(lambda (str) (coerce str 'list))
+                              (car x)))
+                (command (cdr x)))
+            (mapc (lambda (key)
+                    (define-key *less-mode-map* key command))
+                  keys)))
+        ;; ƒL[ƒ}ƒbƒv‚ÌÚ×‚Íless‚Ìƒwƒ‹ƒvQÆ
+        '(
+          ;; (("h" "H") . undefined)        ; help
+          (("q" ":q" "Q" "ZZ") . less-quit)
+          (("e" "\x05" "j" "\x0e" "\x0d") . less-scroll-down) ; ^E ^N ^M
+          (("y" "\x19" "k" "\x0b" "\x10") . less-scroll-up) ; ^Y ^K ^P
+          (("f" "\x06" "\x16" " ") . next-page) ; ^F ^V
+          (("b" "\x02" "\x8076") . previous-page) ; ^B ESC-v
+          (("z") . next-page)
+          (("w") . previous-page)
+          ;; (("\X8020") . less-next-page?) ; ESC-SPACE
+          (("d" "\x04") . (lambda ()
+                            (interactive)
+                            (let ((*page-scroll-half-window* t))
+                              (next-page)))) ; ^D
+          (("u" "\x15") . (lambda ()
+                            (interactive)
+                            (let ((*page-scroll-half-window* t))
+                              (previous-page)))) ; ^U
+          (("\X8028" "\xff06") . scroll-right) ; ESC-( RightArrow
+          (("\X8028" "\Xff04") . scroll-left) ; ESC-) LeftArrow
+          ;; (("F") . tail-f?)
+          (("r" "\x12" "\x0c") . (lambda () (interactive) (refresh-screen))) ; ^R ^L
+          ;; (("R") . refresh-screen-noinput?)
+          (("/") . search-forward)
+          (("?") . search-backward)
+          (("n") . repeat-forward-search) ; search-forward-again?
+          (("N") . repeat-backward-search) ; search-backward-again?
+          ;; (("ESC-n") . undefined)
+          ;; (("ESC-N") . undefined)
+          ;; (("ESC-u"). undefined)
+          (("g" "<" "\X803c") . 'beginning-of-buffer) ; ESC-<
+          (("G" ">" "\X803e") . end-of-buffer) ; ESC->
+          (("p" "%") . less-goto-page)
+          (("{" "(" "[" "}" ")" "]") . goto-matched-parenthesis)
+          ;; (("ESC-^F <c1> <c2>") . undefined)
+          ;; (("ESC--B <c1> <c2>") . undefined)
+          ;; (("m") . less-mark-line)
+          ;; (("'" "\x18\x18") . less-goto-mark) ; ^X^X
+          ;; (("=" "\x07" ":f") . undefined) ; •\¦’†‚Ìƒtƒ@ƒCƒ‹–¼(‚Æ•¶šƒR[ƒh)‚ğ•\¦‚·‚é.
+          ;; (("@") . change-fileio-encoding)
+          (("v") . less-quit)   ; ƒoƒbƒtƒ@‚ğ•ÒW‚·‚é
+          (("1" "2" "3" "4" "5" "6" "7" "8" "9" "0") . digit-argument)))
+  )
+
+(defun less-scroll-down (&optional (arg 1))
+  (interactive "p")
+  (scroll-window arg))
+
+(defun less-scroll-up (&optional (arg 1))
+  (interactive "p")
+  (scroll-window (- arg)))
+
+(defun less-goto-page (&optional (arg 0))
+  (interactive "p")
+  (goto-line (* (/ (buffer-lines) 100) arg))
+  (recenter 0))
+
+(defun less-quit ()
+  (interactive)
+  (less-mode nil))
+
+
+;;; UN*X ‚Ìƒ}ƒjƒ…ƒAƒ‹‚ğŒ©‚é
+;;; Ql: $EMACS/lisp/man.el
+;;; "LANG=C man man | [col -b | colcrt]" ‚ğg‚¤•û–@‚à‚ ‚é
 ;;; TODO:
-;;; * æ—¥æœ¬èªMANã‚‚è¦‹ãŸã„ (cygwinã®å•é¡Œ?)
-;;; * ä¸‹ç·šã€å¤ªç·šã®å¼·èª¿
+;;; * “ú–{ŒêMAN‚àŒ©‚½‚¢ (cygwin‘¤‚Åİ’è‚ª•K—vA‚»‚ê‚Æ•¶šƒR[ƒhŠÖ˜A)
+;;; * ‰ºüA‘¾ü‚Ì‹­’²
 ;;; * manual-mode (view-mode, less-mode)
 ;;; (set-text-attribute FROM TO TAG :bold t :underline t)
-;; '(1.ãƒ¦ãƒ¼ã‚¶ç”¨ã‚³ãƒãƒ³ãƒ‰ 2.ã‚·ã‚¹ãƒ†ãƒ ã‚³ãƒ¼ãƒ« 3.ãƒ©ã‚¤ãƒ–ãƒ©ãƒªé–¢æ•° 4.ãƒ‡ãƒã‚¤ã‚¹ãƒ•ã‚¡ã‚¤ãƒ«
-;;   5.å„ç¨®è¨­å®šãƒ•ã‚¡ã‚¤ãƒ« 6.ã‚²ãƒ¼ãƒ ãƒ—ãƒ­ã‚°ãƒ©ãƒ  7.ç¿’æ…£ç­‰ã®èª¬æ˜ 8.ç®¡ç†è€…ç”¨ã‚³ãƒãƒ³ãƒ‰)
-;; (export 'man-page)
+;; '(1.ƒ†[ƒU—pƒRƒ}ƒ“ƒh 2.ƒVƒXƒeƒ€ƒR[ƒ‹ 3.ƒ‰ƒCƒuƒ‰ƒŠŠÖ” 4.ƒfƒoƒCƒXƒtƒ@ƒCƒ‹
+;;   5.Šeíİ’èƒtƒ@ƒCƒ‹ 6.ƒQ[ƒ€ƒvƒƒOƒ‰ƒ€ 7.KŠµ“™‚Ìà–¾ 8.ŠÇ—Ò—pƒRƒ}ƒ“ƒh)
 
-;; call-processç‰ˆ
+;; Known bugs:
+;; - Œ³‚Ì•\¦‚Æ‚Íˆá‚¤ˆÊ’u‚Å‰üs‚ª“ü‚é
+
+;; F•t‚¯‚Í–¢À‘•
+;; §Œä•¶š‚ğæ‚èœ‚¢‚ÄƒeƒLƒXƒg•\¦‚·‚é‚Ì‚İ
+;; æ‚èœ‚­‚×‚«§Œä•¶š‚Éu‰üs•¶šv‚àŠÜ‚Ü‚ê‚Ä‚¢‚é‹C‚ª‚·‚éB
+;; http://www.isthe.com/chongo/tech/comp/ansi_escapes.html
+(export 'manpage-fontify-buffer)
+(defun manpage-fontify-buffer ()
+  (interactive)
+  (labels ((trim-buffer (regexp)
+             (save-excursion
+               (goto-char (point-min))
+               (replace-buffer regexp "" :regexp t))))
+    (trim-buffer ".\b\b")       ; ?
+    (trim-buffer "_\b")         ; ‰ºü :underline
+    (trim-buffer "\b.")         ; ‘¾š :bold
+    ))
+
+;; make-process ”Å man-page
+
+;; “ú–{Œê”Åƒ}ƒjƒ…ƒAƒ‹”z•zŒ³: JM Project - http://www.linux.or.jp/JM/
+;; Œö®”z•z‚Ìƒ}ƒjƒ…ƒAƒ‹‚Ì•¶šƒR[ƒh‚Íeuc-jp:lf‚Ì‚İ’ñ‹Ÿ‚¾‚Á‚½‚Í‚¸
+(export '(manual-entry man))
+
+(defun man (str &optional section)
+  (interactive (list (read-manual-entry "Manual entry: ") *prefix-value*))
+  (if (string= str "")
+      (error "What manual page do you want?"))
+  (if section (setq str (format nil "~D ~A" section str)))
+  (message "Invoking man ~A in the background" str)
+  (let* ((tmpbuf (create-new-buffer " *Man temp*"))
+         (proc (make-process (format nil "man ~A" str)
+                             :output tmpbuf
+                             :environ *cygwin-environment-alist*)))
+    (set-process-incode proc *encoding-euc-jp*)
+    (set-process-filter proc
+                        #'(lambda (process str)
+                            (save-excursion
+                              (set-buffer tmpbuf)
+                              (insert str "\n"))))
+    (set-process-sentinel
+     proc
+     ;; ‚±‚ÌŠÖ”“à‚ÅƒGƒ‰[‚ğ“Š‚°‚é‚Æ³í‚É‹@”\‚µ‚È‚¢H
+     ;; ƒGƒ‰[ƒLƒƒƒbƒ`‚Í‚Å‚«‚é‚ñ‚¾‚ªA‰¹‚Æ•\¦‚ªo‚È‚¢
+     #'(lambda (process)
+         (unwind-protect
+             ;; $ man -k STRING ‚à•Ô‚è’l‚P‚É‚È‚é‚æ‚¤‚¾‚ªg‚í‚È‚¢‚Ì‚Å‹C‚É‚µ‚È‚¢‚±‚Æ‚É‚·‚é
+             (cond ((/= 0 (process-exit-code process))
+                    (save-excursion
+                      (set-buffer tmpbuf)
+                      (goto-char (point-min))
+                      ;; No manual entry for STRING
+                      ;; No entry for STRING in section N of the manual
+                      (let ((msg (and (scan-buffer (compile-regexp
+                                                    "^No \\(manual \\)?entry for .*$"))
+                                      (match-string 0))))
+                        (progn (ding) (message "~A" msg))
+                        (error "~A" msg))))
+                   (:else
+                    (with-output-to-temp-buffer ((format nil "*Man ~A*" str) t)
+                      (insert-buffer tmpbuf)
+                      (manpage-fontify-buffer)
+                      (toggle-read-only t)
+                      ;; (less-mode t)
+                      (message "~A man page formatted" str))))
+           (progn
+             (or (deleted-buffer-p tmpbuf)
+                 (delete-buffer tmpbuf))
+             (refresh-screen)))))))
+
+(setf (symbol-function 'manual-entry) #'man)
+
+#|
+;; call-process”Å
+;; (export 'man-page)
 (defun man-page (str &optional section)
-  "cygwin ã®ãƒãƒ‹ãƒ¥ã‚¢ãƒ«ã‚’å‚ç…§ã—ã¾ã™."
+  "cygwin ‚Ìƒ}ƒjƒ…ƒAƒ‹‚ğQÆ‚µ‚Ü‚·."
   (interactive (list (read-manual-entry "Manual entry: ") *prefix-value*))
   (if section
       (setq str (format nil "~D ~A" section str)))
@@ -68,7 +234,7 @@
       (unwind-protect
           (long-operation
             (call-process (format nil "~A ~A" (cygpath "/bin/man.exe") str)
-                          :environ '(("LANG" . "C"))
+                          :environ *cygwin-environment-alist*
                           :output tempfile :show :minimize :wait t)
             (with-open-file (s tempfile :direction :input)
               (let ((res (read-line s nil "[EOF]")))
@@ -78,49 +244,14 @@
                     (error res))))
             (with-output-to-temp-buffer ((format nil "*Man ~A*" str) t)
               (insert-file-contents tempfile)
-              ;; ä¸‹ç·š->å¤ªå­—ã®é †ã«æ¶ˆã™ã¨ä¸Šæ‰‹ãã„ã
-              (trim-buffer "_") ; ä¸‹ç·š
-              (trim-buffer ".") ; å¤ªå­—
+              ;; ‰ºü->‘¾š‚Ì‡‚ÉÁ‚·‚Æãè‚­‚¢‚­
+              (trim-buffer "_") ; ‰ºü
+              (trim-buffer ".") ; ‘¾š
               (toggle-read-only t)))
         (delete-file tempfile)))))
+|#
 
-;; make-process ç‰ˆ man-page
-(export 'manual-entry)
-(defun manual-entry (str &optional section)
-  (interactive (list (read-manual-entry "Manual entry: ") *prefix-value*))
-  (if section (setq str (format nil "~D ~A" section str)))
-  (let* ((tmpbuf (create-new-buffer " *Man temp*"))
-         (proc (make-process (format nil "man ~A" str)
-                             :output tmpbuf
-                             :environ '(("LANG" . "C")))))
-    (message "Invoking man ~A in the background" str)
-    (set-process-sentinel proc
-                          ;; ã“ã®é–¢æ•°å†…ã§ã‚¨ãƒ©ãƒ¼ã‚’æŠ•ã’ã‚‹ã¨æ­£å¸¸ã«æ©Ÿèƒ½ã—ãªã„ï¼Ÿ
-                          ;; ã‚¨ãƒ©ãƒ¼ã‚­ãƒ£ãƒƒãƒã¯ã§ãã‚‹ã‚“ã ãŒã€éŸ³ã¨è¡¨ç¤ºãŒå‡ºãªã„
-                          #'(lambda (pid)
-                              (declare (ignore pid))
-                              (labels ((trim-buffer (regexp)
-                                         (save-excursion
-                                           (goto-char (point-min))
-                                           (replace-buffer regexp "" :regexp t))))
-                                (unwind-protect
-                                    (progn
-                                      (with-input-from-buffer (tmpbuf)
-                                        (let ((res (read-line *standard-input*)))
-                                          (when (string-match "^\\(No\\|What\\)" res)
-                                            (ding)
-                                            (message res)
-                                            (error res))))
-                                      (with-output-to-temp-buffer ((format nil "*Man ~A*" str) t)
-                                        (insert-buffer tmpbuf)
-                                        (trim-buffer "_") ; ä¸‹ç·š
-                                        (trim-buffer ".") ; å¤ªå­—
-                                        (toggle-read-only t)
-                                        (refresh-screen))
-                                      (message "~A man page formatted" str))
-                                  (delete-buffer tmpbuf)))))))
-
-;; cygwin-mount.lå‚ç…§ã—ã‚ˆã†ã‹
+;; cygwin-mount.lQÆ‚µ‚æ‚¤‚©
 ;; http://cygwin.com/cygwin-ug-net/using-utils.html#cygpath
 (defun cygpath (pathname &key (type :unix))
   "Convert Unix and Windows format paths, or output system path information."
@@ -128,42 +259,50 @@
     (:dos (get-short-path-name pathname))
     (:mixed (map-backslash-to-slash (namestring pathname)))
     (:unix (cond ((string-match "^/" pathname)
-                  (merge-pathnames (subseq pathname 1) *cygwin-root*))
+                  (merge-pathnames (string-left-trim "/" pathname) *cygwin-root*))
                  (t pathname)))
     (:windows (map-slash-to-backslash (namestring pathname)))))
 
 (defvar *manpath* '("/usr/local/man" "/usr/share/man" "/usr/man")
-  "ç’°å¢ƒå¤‰æ•° MANPATH ã¨å¤§ä½“åŒã˜.")
+  "ŠÂ‹«•Ï” MANPATH ‚Æ‘å‘Ì“¯‚¶.")
 
+(defun manual-list ()
+  (long-operation
+    (let ((*manpath* (mapcar #'cygpath *manpath*)))
+      (delete-duplicates
+       (mapcan #'(lambda (x)
+                   (mapcar #'(lambda (path)
+                               ;; filename.ext1.ext2 => filename
+                               (pathname-name (pathname-name path)))
+                           (directory x :recursive t :file-only t
+                                      ;; "*.1.gz"
+                                      :wild '("*.1" "*.gz" "*.n" "*.n.gz"))))
+               *manpath*)
+       :test #'string-equal))))
+
+;; ƒ}ƒjƒ…ƒAƒ‹ˆê——‚Ìì¬‚ÉŠÔ‚ª‚©‚©‚é‚Ì‚ğ‚Ç‚¤‚É‚©‚µ‚½‚¢‚ª...
+;; - ƒRƒ“ƒpƒCƒ‹‚É“WŠJ (eval-when ...)
+;; - ƒZƒbƒVƒ‡ƒ“ƒtƒ@ƒCƒ‹‚Ì‚æ‚¤‚É•Êƒtƒ@ƒCƒ‹‚É‚µ‚ÄA‚»‚±‚©‚ç“Ç‚İ‚İ
 (defvar *manual-list* nil)
+
+(defun build-manual-list (&optional nomsg force-update)
+  (or (and *manual-list* force-update)
+      (long-operation
+        (unless nomsg (message "Making manual list..."))
+        (setq *manual-list* (manual-list))
+        (unless nomsg (message "Making manul list..done"))))
+  t)
 
 ;; $CYGWIN/etc/profile
 ;; MANPATH=/usr/local/man:/usr/share/man:/usr/man:$MANPATH
 ;; woman-topic-all-completions
 ;; woman-file-name-all-completions
-(defun manual-completions ()
-  (let ((*manpath* (mapcar #'cygpath *manpath*)))
-    ;; (declare (speical *manpath*))
-    (long-operation
-      (message "Making manual list...")
-      (setq *manual-list*
-            (delete-duplicates
-             (mapcan #'(lambda (x)
-                         (mapcar #'(lambda (path)
-                                     ;; filename.ext1.ext2 => filename
-                                     (pathname-name (pathname-name path)))
-                                 (directory x :recursive t :file-only t
-                                            ;; "*.1.gz"
-                                            :wild '("*.1" "*.gz" "*.n" "*.n.gz"))))
-                     *manpath*)
-             :test #'string-equal))
-      (message "Making manul list..done"))
-    *manual-list*))
-
 (defun read-manual-entry (prompt &key default)
   (completing-read prompt
                    (or *manual-list*
-                       (manual-completions))
+                       (progn
+                         (build-manual-list)
+                         *manual-list*))
                    :case-fold t
                    :default default
                    :must-match nil))

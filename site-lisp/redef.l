@@ -1,29 +1,30 @@
-ï»¿;;; -*- Mode: Lisp; Encoding: UTF-8 -*-
-;;;
-;;; redef.l - xyzzy çµ„ã¿è¾¼ã¿é–¢æ•°ç¾¤ã®å†å®šç¾©
-;;;
+;;; -*- Mode: Lisp; Encoding: Shift_JIS -*-
+
+;;; redef.l --- xyzzy ‘g‚İ‚İŠÖ”‚ğÄ’è‹`‚µ‚½‚à‚Ì
+
+;; This file is NOT part of xyzzy.
 
 (provide "redef")
 
 
 (in-package "editor")
 
-;; ã™ã§ã«å®šç¾©ã•ã‚Œã¦ã„ã‚‹ã‚‚ã®ã¯å¿…è¦ãªã„ã‹ã‚‚
+;; ‚·‚Å‚É’è‹`‚³‚ê‚Ä‚¢‚é‚à‚Ì‚Í•K—v‚È‚¢‚©‚à
 ;; (export '())
 
 (defparameter *tab-bar-never-focus* t
-  "non-nil ãªã‚‰ã‚¿ãƒ–ãƒ•ã‚©ãƒ¼ã‚«ã‚¹ã®éš›ã«ã‚­ãƒ£ãƒ¬ãƒƒãƒˆãŒæ¶ˆãˆã«ãããªã‚‹.")
+  "non-nil ‚È‚çƒ^ƒuƒtƒH[ƒJƒX‚ÌÛ‚ÉƒLƒƒƒŒƒbƒg‚ªÁ‚¦‚É‚­‚­‚È‚é.")
 
 ;;; defs.l
 (defparameter inverse-cursor-line t
-  "non-nil ãªã‚‰ã‚«ãƒ¼ã‚½ãƒ«è¡Œã¨ä¸‹ç·šã®é‡ãªã‚ŠãŒè¦‹ã‚„ã™ããªã‚‹ã‹ã‚‚ã—ã‚Œãªã„.")
+  "non-nil ‚È‚çƒJ[ƒ\ƒ‹s‚Æ‰ºü‚Ìd‚È‚è‚ªŒ©‚â‚·‚­‚È‚é‚©‚à‚µ‚ê‚È‚¢.")
 
 (defparameter show-dots nil
-  "non-nil ãªã‚‰ find-file ã§ãƒ‰ãƒƒãƒˆã§å§‹ã¾ã‚‹ãƒ•ã‚¡ã‚¤ãƒ«ã‚‚è¦‹ãˆã‚‹ã‚ˆã†ã«ãªã‚‹.")
+  "non-nil ‚È‚ç find-file ‚Åƒhƒbƒg‚Ån‚Ü‚éƒtƒ@ƒCƒ‹‚àŒ©‚¦‚é‚æ‚¤‚É‚È‚é.")
 
 ;;; [xyzzy:07649]
 (defparameter *eat-mouse-activate* t
-  "non-nil ãªã‚‰ xyzzy ãŒã‚¢ã‚¯ãƒ†ã‚£ãƒ–ã«ãªã‚‹éš›, ã‚¯ãƒªãƒƒã‚¯ã—ãŸå ´æ‰€ã«ã‚«ãƒ¼ã‚½ãƒ«ç§»å‹•ã•ã›ãªã„.")
+  "non-nil ‚È‚ç xyzzy ‚ªƒAƒNƒeƒBƒu‚É‚È‚éÛ, ƒNƒŠƒbƒN‚µ‚½êŠ‚ÉƒJ[ƒ\ƒ‹ˆÚ“®‚³‚¹‚È‚¢.")
 
 ;;; winhelp.l
 (setq *html-help-path* (merge-pathnames "reference.chm" (etc-path)))
@@ -31,7 +32,8 @@
 ;;; builtin.l
 #-xyzzy
 (defun listen (&optional input-stream)
-  ;; æœªå®Œæˆã ã‹ã‚‰ä½¿ã‚ãªã„æ–¹ãŒã„ã„ã¨æ€ã†ã€‚ã“ã‚“ãªã‚„ã‚Šæ–¹ã‚‚ã‚ã‚‹ã‚ˆã€ã¨ã„ã†ã“ã¨ã§
+  ;; g‚í‚È‚¢•û‚ª‚¢‚¢‚Æv‚¤B
+  ;; ‚±‚ñ‚È‚â‚è•û‚à‚ ‚é‚æA‚Æ‚¢‚¤‚±‚Æ‚Å
   #+nil
   (let ((ch (read-char-no-hang input-stream nil nil)))
     (prog1
@@ -44,9 +46,9 @@
 (defun buffer-menu ()
   (interactive)
   (list-buffers)
-  (scan-buffer "^\\." :regexp t)) ; é¸æŠã—ã¦ã„ãŸãƒãƒƒãƒ•ã‚¡ã«ã‚«ãƒ¼ã‚½ãƒ«
+  (scan-buffer "^\\." :regexp t)) ; ‘I‘ğ‚µ‚Ä‚¢‚½ƒoƒbƒtƒ@‚ÉƒJ[ƒ\ƒ‹
 
-;; å¤§æ–‡å­—å°æ–‡å­—ã‚’åŒºåˆ¥ã—ãªã„ãƒãƒƒãƒ•ã‚¡é¸æŠ
+;; ‘å•¶š¬•¶š‚ğ‹æ•Ê‚µ‚È‚¢ƒoƒbƒtƒ@‘I‘ğ
 (defun visible-buffer-list ()
   (remove-if #'(lambda (buf)
                  (find #\SPC buf :end 1))
@@ -75,7 +77,7 @@
 (defun toggle-session-auto-save (&optional (arg nil sv))
   (interactive "p")
   (toggle-mode '*auto-save-session-file* arg sv)
-  ;; è¡¨ç¤ºãŒã‚ã‚‹ã¨åˆ†ã‹ã‚Šã‚„ã™ã„
+  ;; •\¦‚ª‚ ‚é‚Æ•ª‚©‚è‚â‚·‚¢
   (message "Session auto save: ~:[OFF~;ON~]" ed::*auto-save-session-file*))
 
 ;;; misc.l
@@ -93,7 +95,7 @@
   (message "Trace on error: ~:[OFF~;ON~]" si:*trace-on-error*)
   t)
 
-;; å˜ã«å¥½ã¿ã®å•é¡Œ
+;; ’P‚ÉD‚İ‚Ì–â‘è
 (defun msgbox (fmt &rest args)
   (message-box (apply #'format nil fmt args)))
 
@@ -105,7 +107,7 @@
       (let ((opoint (point)))
         (multiple-value-bind (class name functionp)
             (funcall tags-find-target)
-          ;; çµ„ã¿è¾¼ã¿é–¢æ•°ã‚‚è¦‹ã¤ã‘ãŸã„
+          ;; ‘g‚İ‚İŠÖ”‚àŒ©‚Â‚¯‚½‚¢
           (if (string-match "lisp" (string buffer-mode))
               (setq name (car (last (split-string name ":"))))) ; remove package-name
           (multiple-value-bind (file point functionp)
@@ -120,7 +122,7 @@
                                   (message "#'~S is Builtin function" sym)
                                   t))
                          (find-all-symbols name)))
-                  (t            ; è¦‹ã¤ã‹ã‚‰ãªã‹ã£ãŸã‚‰
+                  (t            ; Œ©‚Â‚©‚ç‚È‚©‚Á‚½‚ç
                    ;; (direct-tag-jump)
                    ))
             nil))))))
@@ -139,17 +141,20 @@
                         (point)))))))
 
 ;;; filer.l
+#-xyzzy
 (defun filer-shell-execute ()
   (let ((file (filer-get-current-file)))
     (when (or (null *filer-query-before-process*)
-              (yes-or-no-p "~A~%ã‚’å®Ÿè¡Œã—ã¾ã™ã‹?" file))
+              (yes-or-no-p "~A~%‚ğÀs‚µ‚Ü‚·‚©?" file))
       (filer-forward-line 1)
       (shell-execute file (filer-get-directory))
-      (filer-cancel))))         ; ã¤ã„ã§ã« quit
+      (filer-cancel))))         ; ‚Â‚¢‚Å‚É quit
 
-;; ãƒ•ã‚¡ã‚¤ãƒ«ã®ãƒãƒ¼ã‚¯ã‚’ãƒãƒƒãƒ•ã‚¡ã®ãƒªãƒ¼ã‚¸ãƒ§ãƒ³ã®ã‚ˆã†ã«æ‰±ã£ã¦ã¿ã‚‹
+;; ƒtƒ@ƒCƒ‹‚Ìƒ}[ƒN‚ğƒoƒbƒtƒ@‚ÌƒŠ[ƒWƒ‡ƒ“‚Ì‚æ‚¤‚Éˆµ‚Á‚Ä‚İ‚é
 (defun filer-close-modal ()
-  (cond ((filer-get-mark-files) (filer-clear-all-marks))
+  (cond ((filer-get-mark-files)
+         ;; (ding)
+         (filer-clear-all-marks))
         ((filer-modal-p) (filer-cancel))
         (t (quit))))
 
@@ -158,7 +163,7 @@
   (interactive)
   (multiple-value-bind (files result)
       (let ((omode (get-ime-mode))
-            ;; ã“ã“ã§å¤‰æ•°æ±ºã‚ã‚‹ã¨å¤–å´ã®æŸç¸›ãŒç„¡æ„å‘³ã«ãªã£ã¦ã—ã¾ã†ã®ã§ã‚„ã‚ã‚‹
+            ;; ‚±‚±‚Å•Ï”Œˆ‚ß‚é‚ÆŠO‘¤‚Ì‘©”›‚ª–³ˆÓ–¡‚É‚È‚Á‚Ä‚µ‚Ü‚¤‚Ì‚Å‚â‚ß‚é
             (*filer-primary-directory*
              (if (file-visited-p)
                  (directory-namestring (get-buffer-file-name))
@@ -176,12 +181,12 @@
       (multiple-value-bind (result data)
           (dialog-box
            `(dialog 0 0 273 237
-                    (:caption ,(concat (file-namestring file) "ã®ä¸­èº«"))
+                    (:caption ,(concat (file-namestring file) "‚Ì’†g"))
                     (:font 9 "MS UI Gothic")
                     (:control
                      (:listbox list nil #x50b10911 7 7 259 202)
-                     (:button IDOK "é–‹ã" #x50010001 158 216 50 14)
-                     (:button IDCANCEL "ã‚­ãƒ£ãƒ³ã‚»ãƒ«" #x50010000 216 216 50 14)))
+                     (:button IDOK "ŠJ‚­" #x50010001 158 216 50 14)
+                     (:button IDCANCEL "ƒLƒƒƒ“ƒZƒ‹" #x50010000 216 216 50 14)))
            (list (cons 'list
                        (long-operation
                          (mapcar #'(lambda (x)
@@ -191,8 +196,8 @@
                                                   nil "~d/~2,'0d/~2,'0d ~2,'0d:~2,'0d"
                                                   (cadddr x))
                                            (car x)))
-                                 (prog2 ; è¡¨ç¤ºãŒã‚ã£ãŸæ–¹ãŒæ°—ãŒæ¥½
-                                     (message "å±•é–‹ä¸­ ~A..." file)
+                                 (prog2 ; •\¦‚ª‚ ‚Á‚½•û‚ª‹C‚ªŠy
+                                     (message "“WŠJ’† ~A..." file)
                                      (list-archive file)
                                    (message "done"))))))
            '((list :column (6 -10 18 100) :must-match t :enable (IDOK))))
@@ -207,15 +212,15 @@
 (defun filer-delete ()
   (long-operation
     (let ((marks (or (filer-get-mark-files)
-                     ;; ãƒãƒ¼ã‚¯ãŒãªã‘ã‚Œã°ã€ã‚«ãƒ¼ã‚½ãƒ«ä½ç½®ã®ãƒ•ã‚¡ã‚¤ãƒ«ã‚’å‰Šé™¤å¯¾è±¡ã«ã™ã‚‹
+                     ;; ƒ}[ƒN‚ª‚È‚¯‚ê‚ÎAƒJ[ƒ\ƒ‹ˆÊ’u‚Ìƒtƒ@ƒCƒ‹‚ğíœ‘ÎÛ‚É‚·‚é
                      (list (filer-get-current-file)))))
       (when (and marks
                  (if *filer-query-delete-precisely*
                      (filer-query-delete marks)
-                     (yes-or-no-p "~A" (concat "é¸æŠã•ã‚ŒãŸãƒ•ã‚¡ã‚¤ãƒ«ã‚’å‰Šé™¤ã—ã¾ã£ã›"
+                     (yes-or-no-p "~A" (concat "‘I‘ğ‚³‚ê‚½ƒtƒ@ƒCƒ‹‚ğíœ‚µ‚Ü‚Á‚¹"
                                                (and *filer-delete-mask*
                                                     (filer-delete-mask-string *filer-delete-mask*
-                                                                              "\nå‰Šé™¤ãƒã‚¹ã‚¯: "))))))
+                                                                              "\níœƒ}ƒXƒN: "))))))
         (filer-subscribe-to-reload (filer-get-directory) t)
         (let ((if-access-denied (if *filer-delete-read-only-files*
                                     :force :error))
@@ -233,8 +238,8 @@
          (selection-start-end (start end)
            (delete-region start end))
          (insert (format nil "~{~A~^ ~}" files)))
-        ;; ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªã‚’D&Dã—ãŸã‚‰ãƒ•ã‚¡ã‚¤ãƒ©ã‚’é–‹ã
-        ;; ãƒ•ã‚¡ã‚¤ãƒ«ã®æ‰±ã„æ–¹ãŒé©å½“ã™ãã‚‹ãª...
+        ;; ƒfƒBƒŒƒNƒgƒŠ‚ğD&D‚µ‚½‚çƒtƒ@ƒCƒ‰‚ğŠJ‚­
+        ;; ƒtƒ@ƒCƒ‹‚Ìˆµ‚¢•û‚ª“K“–‚·‚¬‚é
         ((file-directory-p (car files))
          (let ((*filer-primary-directory* (car files)))
            (open-filer)))
@@ -256,8 +261,8 @@
            (not (zerop (logand (get-window-flags) *window-flag-tab*)))))
 
 ;;; help.l
-;; apropos ã§ã™ã¹ã¦ã®ãƒ‘ãƒƒã‚±ãƒ¼ã‚¸ã‚’æ¤œç´¢ã™ã‚‹ (s/do-symbols/do-all-symbols)
-;; ã‚³ãƒ³ãƒ‘ã‚¤ãƒ«ã—ãªã„ã¨é…ã„ã‚ˆ
+;; apropos ‚Å‚·‚×‚Ä‚ÌƒpƒbƒP[ƒW‚ğŒŸõ‚·‚é (s/do-symbols/do-all-symbols)
+;; ƒRƒ“ƒpƒCƒ‹‚µ‚È‚¢‚Æ’x‚¢‚æ
 (defun apropos-find-matches (pattern pred)
   (let ((regexp (compile-regexp pattern))
         (result nil))
@@ -280,13 +285,13 @@
     result))
 
 (defun apropos (string &optional print-key pred)
-  "æŒ‡å®šã—ãŸæ­£è¦è¡¨ç¾ã«ä¸€è‡´ã™ã‚‹ã‚·ãƒ³ãƒœãƒ«ã‚’è¡¨ç¤ºã—ã¾ã™"
+  "w’è‚µ‚½³‹K•\Œ»‚Éˆê’v‚·‚éƒVƒ“ƒ{ƒ‹‚ğ•\¦‚µ‚Ü‚·"
   (interactive "sApropos(Regexp): \np")
   (if *apropos-no-regexp*
       (setq string (regexp-quote string)))
   (long-operation
     (let ((matches (apropos-find-matches string pred)))
-      ;; è¦‹ã¤ã‹ã‚‰ãªã‘ã‚Œã°ãƒãƒƒãƒ•ã‚¡ã„ã‚‰ãªã„
+      ;; Œ©‚Â‚©‚ç‚È‚¯‚ê‚Îƒoƒbƒtƒ@‚¢‚ç‚È‚¢
       (unless matches
         (error "no apropos matches for ~S" string))
       (with-output-to-temp-buffer ("*Help*")
@@ -314,19 +319,19 @@
 ;;; kbdmacro.l
 (defvar *kbd-macro-repeat-char* #\e)
 (defvar *kbd-macro-undo-boundary* t
-  "non-nilãªã‚‰ã°ã‚­ãƒ¼ãƒœãƒ¼ãƒ‰ãƒã‚¯ãƒ­ã®å®Ÿè¡Œæ¯ã«ã‚¢ãƒ³ãƒ‰ã‚¥ãŒåŠ¹ãã‚ˆã†ã«ãªã‚Šã¾ã™.")
+  "non-nil‚È‚ç‚ÎƒL[ƒ{[ƒhƒ}ƒNƒ‚ÌÀs–ˆ‚ÉƒAƒ“ƒhƒD‚ªŒø‚­‚æ‚¤‚É‚È‚è‚Ü‚·.")
 
 (defun call-last-kbd-macro (&optional (arg 1))
   (interactive "p")
   (when *executing-macro*
-    (error "ã‚­ãƒ¼ãƒœãƒ¼ãƒ‰ãƒã‚¯ãƒ­ã¯ã™ã§ã«å®Ÿè¡Œä¸­ã§ã™"))
+    (error "ƒL[ƒ{[ƒhƒ}ƒNƒ‚Í‚·‚Å‚ÉÀs’†‚Å‚·"))
   (when (kbd-macro-saving-p)
-    (error "ã‚­ãƒ¼ãƒœãƒ¼ãƒ‰ãƒã‚¯ãƒ­ã®å®šç¾©ä¸­ã§ã™"))
+    (error "ƒL[ƒ{[ƒhƒ}ƒNƒ‚Ì’è‹`’†‚Å‚·"))
   (unless *last-kbd-macro*
-    (error "ã‚­ãƒ¼ãƒœãƒ¼ãƒ‰ãƒã‚¯ãƒ­ã¯æœªå®šç¾©ã§ã™"))
+    (error "ƒL[ƒ{[ƒhƒ}ƒNƒ‚Í–¢’è‹`‚Å‚·"))
   (let ((*executing-macro* t)
         (*prefix-value* arg))
-    ;; Emacs ã®ã‚ˆã†ã«ã‚¿ã‚¤ãƒ—ã²ã¨ã¤ã§é€£ç¶šå®Ÿè¡Œ
+    ;; Emacs ‚Ì‚æ‚¤‚Éƒ^ƒCƒv‚Ğ‚Æ‚Â‚Å˜A‘±Às
     (tagbody
       #1=#:continue
       (when (command-execute *last-kbd-macro*)
@@ -335,20 +340,22 @@
         (minibuffer-message "Press ~C repeat keyboard macro."
                             *kbd-macro-repeat-char*)
         (let ((ch (read-char)))
+          ;; ƒ‹[ƒv“à‚Å”»’è‚µ‚È‚­‚Ä‚¢‚¢‹C‚Í‚·‚é
+          ;; S®‚ğ•Ï”‚É•Â‚¶‚ß‚ÄAfuncall?
           (if (char= ch *kbd-macro-repeat-char*)
               (go #1#)
               (unread-char ch)))))))
 
 ;;; fill.l
-;; Emacsã®ã‚ˆã†ã«å¼•æ•°ã‚’æ˜ç¤ºçš„ã«æŒ‡å®šã•ã›ã‚‹
+;; Emacs‚Ì‚æ‚¤‚Éˆø”‚ğ–¾¦“I‚Éw’è‚³‚¹‚é
 (defun set-fill-column (&optional col)
   (interactive "p")
   (unless (integerp col)
     (error "set-fill-column requires an explicit argument (current ~D)"
            fill-column))
   (unless (<= 4 col 30000)
-    (error "ãƒ•ã‚£ãƒ«ã‚«ãƒ©ãƒ ã¯4ä»¥ä¸Š30000ä»¥ä¸‹ã§ã™"))
-  (message "ãƒ•ã‚£ãƒ«ã‚«ãƒ©ãƒ ã¯~dã§ã™(ä»¥å‰:~d)" col fill-column)
+    (error "ƒtƒBƒ‹ƒJƒ‰ƒ€‚Í4ˆÈã30000ˆÈ‰º‚Å‚·"))
+  (message "ƒtƒBƒ‹ƒJƒ‰ƒ€‚Í~d‚Å‚·(ˆÈ‘O:~d)" col fill-column)
   (setq fill-column col))
 
 ;;; lispmode.l
@@ -357,8 +364,9 @@
          t)
         ((and (eq buffer-mode 'lisp-interaction-mode)
               (equal (buffer-name (selected-buffer)) "*scratch*"))
+         ;; Á‚·‘O‚É•Û‘¶‚·‚é
          (unless (zerop (buffer-size))
-           (write-file (merge-pathnames "scratch.l" (si:system-root))))
+           (write-file (merge-pathnames ".scratch.l" (si:system-root))))
          (erase-buffer (selected-buffer))
          nil)
         (t t)))
@@ -386,7 +394,7 @@
              (error c))))))
     (eval-region-print stream
                        (if (null stream)
-                           (message "~{~S~^ ; ~}" result) ; å¤šå€¤ã¯ä¸€è¡Œè¡¨ç¤ºã§
+                           (message "~{~S~^ ; ~}" result) ; ‘½’l‚È‚çˆês•\¦
                            (format t "~{~S~%~}" result)))
     (values-list result)))
 
@@ -396,24 +404,57 @@
     :title0 "Write File" :default0 *default-write-file-directory*)
   (and (rename filename)
        (save-buffer)
-       ;; ãƒ¢ãƒ¼ãƒ‰åˆ‡æ›¿
+       ;; ƒ‚[ƒhØ‘Ö
        (funcall (or (some #'(lambda (x)
                               (and (string-match (car x) filename)
                                    (cdr x)))
                           *auto-mode-alist*)
                     *default-buffer-mode*))))
 
+;;; tail-f.l
+;; tail-f‚Íautoload‚¾‚©‚ç’è‹`‚ªã‘‚«‚³‚ê‚é‰Â”\«‚ª‚ ‚é‚È
+(defun tail-f-internal (filename)
+  (setq filename (namestring filename))
+  (let ((buffer (tail-f-find-buffer filename)))
+    (unless buffer
+      (save-excursion
+        (setq buffer (create-new-buffer "*tail-f*"))
+        (set-buffer buffer)
+        (tail-f-mode filename))
+      (make-process (format nil "\"~a\" \"~a\""
+                            (merge-pathnames "tail-f.exe" (etc-path))
+                            filename)
+                    :output buffer
+                    :exec-directory (default-directory buffer))
+      ;; XV‚³‚ê‚½‚çƒEƒBƒ“ƒhƒE‚àˆÚ“®‚µ‚Ä‚Ù‚µ‚¢
+      ;; ƒvƒƒZƒXƒ}[ƒJ[l—¶‚µ‚Ä‚È‚¢‚©‚à
+      (set-process-filter (buffer-process buffer)
+                          #'(lambda (proc str)
+                              (display-buffer #2=(process-buffer proc))
+                              (when #1=(get-buffer-window #2#)
+                                (with-selected-window
+                                  ;; (set-buffer #2#)
+                                  (set-window #1#)
+                                  (goto-char (point-max))
+                                  (insert str)
+                                  (recenter -1)))
+                              (refresh-screen)))
+      ;; (set-process-incode (buffer-process buffer) *encoding-utf8n*)
+      ;; (set-process-outcode (buffer-process buffer) *encoding-utf8n*)
+      )
+    buffer))
+
 
 (in-package "lisp")
 
 ;;; package.l
-;; å¼•æ•°NAMEã¯string designator
+;; ˆø”NAME‚Ístring designator
 (defmacro in-package (name)
   `(eval-when (:compile-toplevel :load-toplevel :execute)
      (in-package-1 ',(string name))))
 
 ;;; list.l
-;; ã»ã‹ã«ã‚‚ã„ãã¤ã‹è¿”å€¤ãŒé€†ã ã£ãŸã®ãŒã‚ã£ãŸã¯ãš
+;; ‚Ù‚©‚É‚à‚¢‚­‚Â‚©•Ô’l‚ª‹t‚¾‚Á‚½‚Ì‚ª‚ ‚Á‚½‚Í‚¸
 (defun intersection (list1 list2 &rest rest &key test test-not key)
   (let ((x '()))
     (dolist (l list1 (nreverse x))
@@ -426,7 +467,7 @@
       (unless (apply #'member (if key (funcall key l) l) list2 rest)
         (push l x)))))
 
-;; çµ„ã¿è¾¼ã¿ã®pathname-directoryãŒã ã‚ã ã‚ã ã£ãŸæ°—ãŒã™ã‚‹ã®ã§
+;; ‘g‚İ‚İ‚Ìpathname-directory‚ª‚¾‚ß‚¾‚ß‚¾‚Á‚½‹C‚ª‚·‚é‚Ì‚Å
 (defun pathname-directory (pathname)
   (let ((dir (ed::split-string (directory-namestring pathname) "/")))
     (if (find #\: (car dir))    ; remove drive-letter

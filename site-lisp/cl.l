@@ -1,19 +1,18 @@
-;;; -*- Mode: Lisp; Package: Lisp; Encoding: UTF-8 -*-
-;;;
-;;; xyzzyにないCommonLisp関数群
-;;;
-;;; This file is NOT part of xyzzy.
+;;; -*- Mode: Lisp; Package: USER; Encoding: Shift_JIS -*-
+
+;;; cl.l --- xyzzy-lisp�ɂȂ�CommonLisp�֐��Q
+
+;; This file is NOT part of xyzzy.
 
 #|
 TODO:
-足りない関数などの補完
-* パスネームオブジェクト P"", パスネーム型の定義
-assert
-symbol-macrolet
-typecase (encap+.l)
-ecase (loop/loop.l)
-disassemble (disassemble.l)
-fdefinition
+- ���̑��֐��Ȃǂ̕⊮
+- �p�X�l�[���I�u�W�F�N�g P"", �p�X�l�[���^�̒�`
+- assert, symbol-macrolet (cl-macs.el)
+- typecase (encap+.l)
+- ecase (loop/loop.l)
+- disassemble (disassemble.l)
+- fdefinition
 |#
 (provide "cl")
 
@@ -30,7 +29,7 @@ fdefinition
           with-standard-io-syntax
           progv
           sleep
-          time                  ; 'winapi::time と被る可能性あり注意
+          time                  ; 'winapi::time �Ɣ��\�����蒍��
           constantly
           function-lambda-expression
           name-char
@@ -56,8 +55,8 @@ cannot be determined."
       (file-write-time pathname)
       (error "file ~S does not exist" pathname)))
 
-(si:*fset 'lisp-implementation-type #'software-type)
-(si:*fset 'lisp-implementation-version #'software-version)
+(setf (symbol-function 'lisp-implementation-type) #'software-type)
+(setf (symbol-function 'lisp-implementation-version) #'software-version)
 
 (defun make-string (size &key (initial-element #\null)
                          (element-type 'character))
@@ -111,21 +110,6 @@ for the variables specified by this standard are listed in the next figure."
          )
      ,@body))
 
-;; あんまりテストしてないのでバグっている可能性あり
-;; * コンパイルの際に内部関数名が残ってしまう
-;; * 本来なら、変数の個数と値の個数が異なってもエラーにならない
-#-xyzzy
-(defmacro progv (symbols values &body body)
-  "progv creates new dynamic variable bindings and executes each form
-using those bindings. Each form is evaluated in order."
-  (let ((var (eval symbols))
-        (val (eval values)))
-    `(labels ((#1=#:progv-form () ,@body))
-       ((lambda (,@var)
-          (declare (special ,@var))
-          (funcall (function #1#)))
-        ,@val))))
-
 ;;; http://home.pipeline.com/~hbaker1/MetaCircular.html
 (defconstant *unbound-value* (list nil))
 
@@ -147,7 +131,7 @@ using those bindings. Each form is evaluated in order."
            ,@forms)
        (mapc #'mset #1# #3#))))
 
-(si:*fset 'sleep #'editor:sleep-for)
+(setf (symbol-function 'sleep) #'editor:sleep-for)
 
 (defmacro time (form)
   `(let ((#1=#:begin (get-internal-real-time)))
@@ -175,16 +159,14 @@ If such a character does not exist, nil is returned."
         (when lst (ed:unicode-char (cdr lst))))
       (error "argument ~S should be a string, a symbol or a character" name)))
 
-;; 書き直す必要あり
-(si:*fset 'ensure-directories-exist #'create-directory)
+;; �Ȃ񂩈Ⴄ�C������
+(setf (symbol-function 'ensure-directories-exist) #'create-directory)
 
 (export '(locally the))
 
-;; cl-macs.l
+;; $EMACS/lisp/emacs-lisp/cl-macs.el
 (defmacro locally (&rest body) `(let nil ,@body))
 (defmacro the (type form) form)
-;; 移植したいもの
-;; assert symbol-macrolet
 
 ;; http://www.nhplace.com/kent/CL/Revision-18.lisp
 
