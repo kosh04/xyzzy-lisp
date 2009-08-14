@@ -1,7 +1,8 @@
-;; keyword file for xyzzy
-;; newLISP v.10.0.0 on Win32 IPv4 UTF-8
+;; keyword file for xyzzy -*- mode:newlisp -*-
+;; newLISP v.10.1.1 on Win32 IPv4 UTF-8
 !
 !=
+$
 %
 &
 *
@@ -111,8 +112,7 @@ ends-with
 env
 erf
 error-event
-error-number
-error-text
+estack
 eval
 eval-string
 exec
@@ -134,7 +134,6 @@ float
 float?
 floor
 flt
-fn
 for
 for-all
 format
@@ -156,6 +155,7 @@ ifft
 import
 inc
 index
+inf?
 int
 integer
 integer?
@@ -163,10 +163,9 @@ intersect
 invert
 irr
 join
-lambda
-lambda-macro
 lambda?
 last
+last-error
 legal?
 length
 let
@@ -189,6 +188,7 @@ max
 member
 min
 mod
+module
 mul
 multiply
 name
@@ -255,6 +255,7 @@ read-expr
 read-file
 read-key
 read-line
+read-utf8
 real-path
 ref
 ref-all
@@ -334,6 +335,7 @@ write-buffer
 write-char
 write-file
 write-line
+xfer-event
 xml-error
 xml-parse
 xml-type-tags
@@ -341,8 +343,11 @@ zero?
 |
 ~
 
+fn
+lambda
+lambda-macro
+
 ;*2
-$
 $0
 $1
 $2
@@ -363,18 +368,21 @@ $args
 $idx
 $it
 $main-args
+ostype
+; Boolean
 nil
 true
-ostype
 ; Context
 Class
 MAIN
 Tree
 
 ;**1
-; Unix-like operating systems only
+; Not available on Win32 platlorms
 peek
 fork
 wait-pid
 net-ping
 parse-date
+send
+receive
