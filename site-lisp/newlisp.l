@@ -1,7 +1,8 @@
-ï»¿;;; -*- Mode: Lisp; Package: EDITOR; Encoding: UTF-8 -*-
-;;;
-;;; This file is NOT part of xyzzy.
-;;;
+;;; -*- Mode: Lisp; Package: EDITOR; Encoding: Shift_JIS -*-
+
+;;; newlisp.l --- newLISP•ÒW—pƒƒWƒƒ[ƒ‚[ƒh
+
+;; This file is NOT part of xyzzy.
 
 (provide "newlisp")
 
@@ -10,7 +11,6 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (require "lispmode")
   (require "shell")
-  (require "util")              ; current-word with-temp-file with-syntax-table
   (require "wip/winapi"))
 
 (export '(*newlisp-exe* *newlisp-dll*))
@@ -28,9 +28,10 @@
           newlisp-eval-defun
           newlisp-mode
           run-newlisp
+          run-newlisp-console
           newlisp-kill-process
           newlisp-completion
-          newlisp-manual
+          newlisp-browse-manual
           *newlisp-mode-hook*))
 
 #|
@@ -63,7 +64,7 @@
 (defun newlisp-process (&key (if-does-not-exist :error))
   (or *newlisp-process*
       (case if-does-not-exist
-        (:error (error "ã‚µãƒ–ãƒ—ãƒ­ã‚»ã‚¹ãŒèµ°ã£ã¦ãªã„ã§"))
+        (:error (error "ƒTƒuƒvƒƒZƒX‚ª‘–‚Á‚Ä‚È‚¢‚Å"))
         (:create (newlisp-make-process)))))
 
 (defun newlisp-make-process ()
@@ -71,7 +72,9 @@
         *newlisp-output-stream* (make-buffer-stream *newlisp-process-buffer*))
   ;; options: -C force prompts
   (let ((proc (make-process (format nil "~A -C -w \"~A\""
-                                    (get-short-path-name *newlisp-exe*)
+                                    (if (file-exist-p *newlisp-exe*)
+                                        (get-short-path-name *newlisp-exe*)
+                                        *newlisp-exe*)
                                     (default-directory))
                             :output *newlisp-process-buffer*
                             :incode *newlisp-process-encoding*
@@ -97,19 +100,20 @@
 
 (defun newlisp-sentinel (proc)
   (let ((buf *newlisp-process-buffer*))
-    ;; ãƒ—ãƒ­ã‚»ã‚¹æ­»ã‚“ã å¾Œã‚‚ãƒ­ã‚°æ®‹ã—ãŸæ–¹ãŒã„ã„ã®ï¼Ÿ
+    ;; ƒvƒƒZƒX€‚ñ‚¾Œã‚àƒƒOc‚µ‚½•û‚ª‚¢‚¢‚ÌH
     (and buf (delete-buffer buf)))
   (close *newlisp-output-stream*)
   (setq *newlisp-process* nil
         *newlisp-process-buffer* nil
         *newlisp-output-stream* nil)
   ;; (run-hook-with-args '*newlisp-kill-process-hook*)
-  (refresh-screen))
+  (refresh-screen)
+  (message "newlisp exit with code ~D" (process-exit-code proc)))
 
 (defparameter *newlisp-output-function*
   #'(lambda (str context)
       (when (string-match "^ERR:" str) (ding))
-      ;; *prefix-args* ã‚’ã“ã“ã§å‚ç…§ã™ã‚‹ã®ãŒã‚ã‚Šãªã®ã‹åˆ†ã‹ã‚‰ãªã„
+      ;; *prefix-args* ‚ğ‚±‚±‚ÅQÆ‚·‚é‚Ì‚ª‚ ‚è‚È‚Ì‚©•ª‚©‚ç‚È‚¢
       (cond (*prefix-args*
              (if (find #\LFD str) (newline) (indent-for-comment))
              (insert str))
@@ -155,18 +159,20 @@
 (defun newlisp-kill-process ()
   (interactive)
   ;; (newlisp-eval "(exit)")
-  (kill-process (newlisp-process)))
+  (signal-process (newlisp-process))
+  ;; (kill-process (newlisp-process))
+  )
 
 #|
-;; UTF-8 ã§é€šä¿¡ã™ã‚‹ã“ã¨ã§æ—¥æœ¬èªã‚‚ãã“ãã“ä½¿ãˆã‚‹
-;; call-process ã‚ˆã‚Š make-process ã‹ãªã‚
-;; (call-process ~ :wait nil) <= å¾…ãŸãªã„æ–¹ãŒè‰¯ã„
+;; UTF-8 ‚Å’ÊM‚·‚é‚±‚Æ‚Å“ú–{Œê‚à‚»‚±‚»‚±g‚¦‚é
+;; call-process ‚æ‚è make-process ‚©‚È‚ 
+;; (call-process ~ :wait nil) <= ‘Ò‚½‚È‚¢•û‚ª—Ç‚¢
 (defun newlisp-eval-buffer (args)
   ;; (interactive "P")
   (interactive (list (if *prefix-args* (read-string "newLISP exec args: ") "")))
   ;; (setq args (if args (read-string "newLISP exec args: ") ""))
   (unless (stringp args)
-    (error "æ–‡å­—åˆ—å¼•æ•°ã‚’é ‚æˆ´ãª"))
+    (error "•¶š—ñˆø”‚ğ’¸‘Õ‚È"))
   (user::with-temp-file (out)
     (user::with-temp-file (exe)
       (write-region (point-min) (point-max) exe nil *encoding-utf8n*)
@@ -187,8 +193,8 @@
            (message "newLISP: no output")))))
 |#
 
-;; ãƒãƒ«ãƒãƒã‚¤ãƒˆä½¿ã†ãªã‚‰ãƒ•ã‚¡ã‚¤ãƒ«ã®æ–‡å­—ã‚³ãƒ¼ãƒ‰ã¯utf8n
-;; æ–‡å­—åŒ–ã‘ã™ã‚‹ã®ã¯ã‚³ãƒ³ã‚½ãƒ¼ãƒ«ã®å•é¡Œãªã®ã‹ï¼Ÿ
+;; ƒ}ƒ‹ƒ`ƒoƒCƒgg‚¤‚È‚çƒtƒ@ƒCƒ‹‚Ì•¶šƒR[ƒh‚Íutf8n
+;; •¶š‰»‚¯‚·‚é‚Ì‚ÍƒRƒ“ƒ\[ƒ‹‚Ì–â‘è‚È‚Ì‚©H
 (defun newlisp-eval-buffer (args)
   (interactive (list (if *prefix-args*
                          (read-string "newLISP exec args: ")
@@ -198,12 +204,12 @@
                               (get-buffer-file-name)
                               args)
                       nil (prog1
-                              ;; ãƒãƒƒãƒ•ã‚¡ã®æ–‡å­—ã‚³ãƒ¼ãƒ‰å¤‰æ›´ã—ã¦ã‚‚æ„å‘³ãªã„æ°—ãŒã™ã‚‹ãªã‚
+                              ;; ƒoƒbƒtƒ@‚Ì•¶šƒR[ƒh•ÏX‚µ‚Ä‚àˆÓ–¡‚È‚¢‹C‚ª‚·‚é‚È‚ 
                               (get-buffer-create #1="*newLISP output*")
                             (set-buffer-fileio-encoding
                              *newlisp-process-encoding* #1#))))
 
-;; æ—¢ã«åˆ¥ã®shellãŒèµ·å‹•ã•ã‚Œã¦ã„ã‚‹ã¨å›°ã‚‹ãªã‚
+;; Šù‚É•Ê‚Ìshell‚ª‹N“®‚³‚ê‚Ä‚¢‚é‚Æ¢‚é‚È‚ 
 (defun run-newlisp (&optional usedos)
   (interactive "P")
   (let ((*eshell* (format nil "~A -C -w ~S"
@@ -219,6 +225,10 @@
         (launch-application *eshell*)
         (shell))))
 
+(defun run-newlisp-console ()
+  (interactive)
+  (launch-application *newlisp-exe*))
+
 (defvar *newlisp-keyword-file* "newLISP")
 (defvar *newlisp-keyword-hash-table* nil)
 (defvar *newlisp-mode-hook* nil)
@@ -230,19 +240,22 @@
       (setq *newlisp-completion-list*
             (make-list-from-keyword-table *newlisp-keyword-hash-table*))
       (return-from newlisp-completion nil))
-  (user::with-syntax-table *newlisp-mode-syntax-table*
-    (let ((from (save-excursion (skip-syntax-spec-backward "w_") (point))))
-      (do-completion from (point)
-                     :list-ignore-case
-                     *newlisp-completion-list*))))
+  (let ((from (save-excursion (skip-syntax-spec-backward "w_") (point))))
+    (do-completion from (point)
+                   :list-ignore-case
+                   *newlisp-completion-list*)))
 
 (defvar *newlisp-mode-syntax-table* nil)
 (unless *newlisp-mode-syntax-table*
   (setq *newlisp-mode-syntax-table* (make-syntax-table))
   (copy-syntax-table *lisp-mode-syntax-table* *newlisp-mode-syntax-table*)
   (set-syntax-match *newlisp-mode-syntax-table* #\{ #\})
+  ;; ‚±‚êAŒø‚¢‚Ä‚¢‚È‚¢‹C‚ª‚·‚é‚ñ‚¾‚ª
   (set-syntax-start-comment *newlisp-mode-syntax-table* #\# nil)
-  (set-syntax-end-comment *newlisp-mode-syntax-table* #\LFD nil t))
+  (set-syntax-end-comment *newlisp-mode-syntax-table* #\LFD nil t)
+  (set-syntax-start-multi-comment *newlisp-mode-syntax-table* "[text]")
+  (set-syntax-end-multi-comment *newlisp-mode-syntax-table* "[/text]")
+  )
 
 (defparameter *newlisp-mode-map*
   (let ((keymap (copy-keymap ed::*lisp-mode-map*)))
@@ -275,47 +288,64 @@
   ;; (newlisp-process :if-does-not-exist :create)
   (run-hooks '*newlisp-mode-hook*))
 
+(defun newlisp-current-word ()
+  (save-excursion
+    (let ((from (progn (skip-syntax-spec-backward "w_") (point)))
+          (to (progn (skip-syntax-spec-forward "w_") (point))))
+      (if (/= from to)
+          (buffer-substring from to)
+          nil))))
+
 (defvar *newlisp-manual-link-alist*
   '(("!" . "shell") ("+-*/%" . "arithmetic") ("Ab" . "abort") ("Ap" . "append") ("As" . "asin") ("Ba" . "base64-dec") ("Ca" . "callback") ("Cl" . "clean") ("Co" . "copy") ("Cu" . "current-line") ("De" . "dec") ("Di" . "difference") ("Do" . "do-until") ("En" . "encrypt") ("Ex" . "exec") ("Fi" . "file-info") ("Fl" . "flat") ("Ga" . "gammaln") ("Gl" . "global") ("In" . "inc") ("La" . "lambdap") ("Li" . "listp") ("Ma" . "macrop") ("Mu" . "mul") ("Net" . "net-accept") ("New" . "new") ("Nt" . "nth") ("Pa" . "pack") ("Pr" . "pretty-print") ("Ra" . "randomize") ("Rea" . "read-buffer") ("Reg" . "regex") ("Sea" . "search") ("Seq" . "sequence") ("Sl" . "sleep") ("St" . "starts-with") ("Sy" . "sync") ("Ti" . "time-of-day") ("Tr" . "truep") ("Ut" . "utf8") ("Wr" . "write-file") ("+, -, *, /,%" . "arithmetic") ("<, >, =," . "logical") ("<=, >=, !=" . "logical") (":" . "colon") ("and" . "and") ("append" . "append") ("apply" . "apply") ("args" . "args") ("assoc" . "assoc") ("begin" . "begin") ("bind" . "bind") ("case" . "case") ("catch" . "catch") ("chop" . "chop") ("clean" . "clean") ("cond" . "cond") ("cons" . "cons") ("constant" . "constant") ("count" . "count") ("curry" . "curry") ("def-new" . "def-new") ("define" . "define") ("define-macro" . "define-macro") ("difference" . "difference") ("do-until" . "do-until") ("do-while" . "do-while") ("doargs" . "doargs") ("dolist" . "dolist") ("dostring" . "dostring") ("dotimes" . "dotimes") ("dotree" . "dotree") ("dup" . "dup") ("ends-with" . "ends-with") ("exists" . "exists") ("eval" . "eval") ("expand" . "expand") ("first" . "first") ("filter" . "filter") ("find" . "find") ("find-all" . "find-all") ("flat" . "flat") ("fn" . "fn") ("for" . "for") ("for-all" . "for-all") ("if" . "if") ("if-not" . "if-not") ("index" . "index") ("intersect" . "intersect") ("lambda" . "lambda") ("lambda-macro" . "lambda-macro") ("last" . "last") ("length" . "length") ("let" . "let") ("letex" . "letex") ("letn" . "letn") ("list" . "list") ("local" . "local") ("lookup" . "lookup") ("map" . "map") ("match" . "match") ("member" . "member") ("not" . "not") ("nth" . "nth") ("or" . "or") ("pop" . "pop") ("pop-assoc" . "pop-assoc") ("push" . "push") ("quote" . "quote") ("ref" . "ref") ("ref-all" . "ref-all") ("rest" . "rest") ("replace" . "replace") ("reverse" . "reverse") ("rotate" . "rotate") ("select" . "select") ("set" . "set") ("set-ref" . "set-ref") ("set-ref-all" . "set-ref-all") ("setf setq" . "setf") ("silent" . "silent") ("slice" . "slice") ("sort" . "sort") ("starts-with" . "starts-with") ("swap" . "swap") ("unify" . "unify") ("unique" . "unique") ("unless" . "unless") ("until" . "until") ("when" . "when") ("while" . "while") ("address" . "address") ("bits" . "bits") ("char" . "char") ("encrypt" . "encrypt") ("eval-string" . "eval-string") ("explode" . "explode") ("float" . "float") ("format" . "format") ("get-char" . "get-char") ("get-float" . "get-float") ("get-int" . "get-int") ("get-long" . "get-long") ("get-string" . "get-string") ("int" . "int") ("join" . "join") ("lower-case" . "lower-case") ("name" . "name") ("pack" . "pack") ("parse" . "parse") ("regex" . "regex") ("regex-comp" . "regex-comp") ("setf" . "setf") ("source" . "source") ("string" . "string") ("sym" . "sym") ("title-case" . "title-case") ("trim" . "trim") ("unicode" . "unicode") ("unpack" . "unpack") ("upper-case" . "upper-case") ("utf8" . "utf8") ("utf8len" . "utf8len") ("abs" . "abs") ("acos" . "acos") ("acosh" . "acosh") ("add" . "add") ("asin" . "asin") ("asinh" . "asinh") ("atan" . "atan") ("atanh" . "atanh") ("atan2" . "atan2") ("beta" . "beta") ("betai" . "betai") ("binomial" . "binomial") ("ceil" . "ceil") ("cos" . "cos") ("cosh" . "cosh") ("crc32" . "crc32") ("crit-chi2" . "crit-chi2") ("crit-z" . "crit-z") ("dec" . "dec") ("div" . "div") ("erf" . "erf") ("exp" . "exp") ("factor" . "factor") ("fft" . "fft") ("floor" . "floor") ("flt" . "flt") ("gammai" . "gammai") ("atan" . "gammaln") ("gcd" . "gcd") ("ifft" . "ifft") ("inc" . "inc") ("log" . "log") ("min" . "min") ("max" . "max") ("mod" . "mod") ("mul" . "mul") ("pow" . "pow") ("round" . "round") ("sequence" . "sequence") ("series" . "series") ("sgn" . "sgn") ("sin" . "sin") ("sinh" . "sinh") ("sqrt" . "sqrt") ("sub" . "sub") ("tan" . "tan") ("tanh" . "tanh") ("det" . "det") ("invert" . "invert") ("mat" . "mat") ("multiply" . "multiply") ("transpose" . "transpose") ("array" . "array") ("array-list" . "array-list") ("array?" . "arrayp") ("<<, >>" . "bit_shift") ("&" . "bit_and") ("|" . "bit_inclusive") ("^" . "bit_exclusive") ("~" . "bit_not") ("atom?" . "atomp") ("context?" . "contextp") ("directory?" . "directoryp") ("empty?" . "emptyp") ("file?" . "filep") ("float?" . "floatp") ("global?" . "globalp") ("integer?" . "integerp") ("lambda?" . "lambdap") ("legal?" . "legalp") ("list?" . "listp") ("macro?" . "macrop") ("NaN?" . "NaNp") ("nil?" . "nilp") ("null?" . "nullp") ("number?" . "numberp") ("primitive?" . "primitivep") ("protected?" . "protectedp") ("quote?" . "quotep") ("string?" . "stringp") ("symbol?" . "symbolp") ("true?" . "truep") ("zero?" . "zerop") ("date" . "date") ("date-value" . "date-value") ("parse-date" . "parse-date") ("now" . "now") ("time" . "time") ("time-of-day" . "time-of-day") ("amb" . "amb") ("bayes-query" . "bayes-query") ("bayes-train" . "bayes-train") ("normal" . "normal") ("prob-chi2" . "prob-chi2") ("prob-z" . "prob-z") ("rand" . "rand") ("random" . "random") ("randomize" . "randomize") ("seed" . "seed") ("search" . "search") ("fv" . "fv") ("irr" . "irr") ("nper" . "nper") ("npv" . "npv") ("pv" . "pv") ("pmt" . "pmt") ("append-file" . "append-file") ("close" . "close") ("device" . "device") ("exec" . "exec") ("load" . "load") ("open" . "open") ("peek" . "peek") ("print" . "print") ("println" . "println") ("read-buffer" . "read-buffer") ("read-char" . "read-char") ("read-file" . "read-file") ("read-key" . "read-key") ("read-line" . "read-line") ("save" . "save") ("seek" . "seek") ("write-buffer" . "write-buffer") ("write-char" . "write-char") ("write-file" . "write-file") ("write-line" . "write-line") ("change-dir" . "change-dir") ("copy-file" . "copy-file") ("delete-file" . "delete-file") ("directory" . "directory") ("file-info" . "file-info") ("make-dir" . "make-dir") ("real-path" . "real-path") ("remove-dir" . "remove-dir") ("rename-file" . "rename-file") ("abort" . "abort") ("destroy" . "destroy") ("fork" . "fork") ("pipe" . "pipe") ("process" . "process") ("semaphore" . "semaphore") ("share" . "share") ("spawn" . "spawn") ("sync" . "sync") ("wait-pid" . "wait-pid") ("base64-enc" . "base64-enc") ("base64-dec" . "base64-dec") ("delete-url" . "delete-url") ("get-url" . "get-url") ("put-url" . "put-url") ("post-url" . "post-url") ("xml-error" . "xml-error") ("xml-parse" . "xml-parse") ("xml-type-tags" . "xml-type-tags") ("net-accept" . "net-accept") ("net-close" . "net-close") ("net-connect" . "net-connect") ("net-error" . "net-error") ("net-eval" . "net-eval") ("net-interface" . "net-interface") ("net-listen" . "net-listen") ("net-local" . "net-local") ("net-lookup" . "net-lookup") ("net-peer" . "net-peer") ("net-peek" . "net-peek") ("net-ping" . "net-ping") ("net-receive" . "net-receive") ("net-receive-from" . "net-receive-from") ("net-receive-udp" . "net-receive-udp") ("net-select" . "net-select") ("net-send" . "net-send") ("net-send-to" . "net-send-to") ("net-send-udp" . "net-send-udp") ("net-service" . "net-service") ("net-sessions" . "net-sessions") ("command-event" . "command-event") ("pretty-print" . "pretty-print") ("prompt-event" . "prompt-event") ("read-expr" . "read-expr") ("$" . "systemsymbol") ("callback" . "callback") ("context" . "context") ("copy" . "copy") ("debug" . "debug") ("default" . "default") ("delete" . "delete") ("env" . "env") ("error-event" . "error-event") ("error-number" . "error-number") ("exit" . "exit") ("global" . "global") ("import" . "import") ("main-args" . "main-args") ("new" . "new") ("ostype" . "ostype") ("reset" . "reset") ("set-locale" . "set-locale") ("signal" . "signal") ("sleep" . "sleep") ("symbols" . "symbols") ("sys-error" . "sys-error") ("sys-info" . "sys-info") ("timer" . "timer") ("throw" . "throw") ("throw-error" . "throw-error") ("trace" . "trace") ("trace-highlight" . "trace-highlight") ("cpymem" . "cpymem") ("dump" . "dump"))
-  "newLISP: (ã‚·ãƒ³ãƒœãƒ«å . URLãƒªãƒ³ã‚¯å) ã®é€£æƒ³ãƒªã‚¹ãƒˆ.")
+  "newLISP: (ƒVƒ“ƒ{ƒ‹–¼ . URLƒŠƒ“ƒN–¼) ‚Ì˜A‘zƒŠƒXƒg.")
 
 (defun read-newlisp-symbol ()
   (assoc (completing-read "newLISP manual: "
                           #1=*newlisp-manual-link-alist*
-                          :default (user::current-word t)
+                          :default (newlisp-current-word)
                           :case-fold t
                           :must-match t)
          #1# :test #'string-equal))
 
-(defun newlisp-manual (str-function)
+(defun newlisp-browse-manual ()
   (interactive (list (cdr (read-newlisp-symbol))))
   (shell-execute (concat "http://www.newlisp.org/downloads/newlisp_manual.html#"
                          str-function)
                  t))
 
-(export 'newlisp-manual-from-text)
-(defun newlisp-manual-from-text (str)
+(export '(*newlisp-manual* newlisp-browse-manual-from-text))
+
+;; ˆÈ‰º‚Ì‚¢‚¸‚ê‚©‚ÌHTMLƒtƒ@ƒCƒ‹‚ğƒeƒLƒXƒg‚É•ÏŠ·‚³‚¹‚½‚à‚Ì‚ğ—pˆÓ‚·‚é•K—v‚ ‚è
+;; - "http://www.newlisp.org/downloads/newlisp_manual.html"
+;; - "C:/Program Files/newlisp/newlisp_manual.html"
+;; ƒeƒLƒXƒg‰»‚·‚é•û–@: html2txt, ƒuƒ‰ƒEƒU‚Ìuƒy[ƒW‚ğ•Û‘¶iƒeƒLƒXƒgƒtƒ@ƒCƒ‹jv
+;; ƒŠƒtƒ@ƒŒƒ“ƒX‚Ìƒo[ƒWƒ‡ƒ“‚É‚æ‚Á‚Ä‚Íg‚¦‚È‚¢‚©‚à‚µ‚ê‚È‚¢
+(defvar *newlisp-manual* "newlisp_manual.txt")
+
+(defun newlisp-browse-manual-from-text (str)
+  "ƒeƒLƒXƒgƒ}ƒjƒ…ƒAƒ‹‚©‚çƒŠƒtƒ@ƒŒƒ“ƒX‚ğQÆ‚·‚é."
   (interactive
       (list (completing-read "newLISP manual: "
                              #1=(make-list-from-keyword-table
                                  ed::*newlisp-keyword-hash-table*)
-                             :default (find (user::current-word) #1# :test #'string=)
+                             :default (find (newlisp-current-word) #1# :test #'string=)
                              :must-match t :case-fold t)))
-  ;; (find-file-other-window "C:/home/lxuser/newlisp/newlisp_manual.txt" nil t)
+  ;; (find-file-other-window *newlisp-manual* nil t)
   (pop-to-buffer
    (prog2
-       (find-file-other-window "C:/home/lxuser/lib/emacs/newlisp/newlisp_manual.txt" nil t)
+       (find-file-other-window *newlisp-manual* nil t)
        (find-buffer "newlisp_manual.txt")))
   (toggle-read-only t)
   (goto-char (point-min))
   (scan-buffer (concat (regexp-quote (concat "*syntax: (" str))
                        "[) ]")
                :regexp t))
-;; " " ã‚’åŠ ãˆã‚‹æ„å‘³ã¯ã‚ã‚‹ã®ã‹
-(define-key ed::*newlisp-mode-map* '(#\C-c #\h) 'newlisp-manual-from-text)
+;; " " ‚ğ‰Á‚¦‚éˆÓ–¡‚Í‚ ‚é‚Ì‚©
+(define-key ed::*newlisp-mode-map* '(#\C-c #\h) 'newlisp-browse-manual-from-text)
 
 #|
-;; ãã®ï¼‘
+;; ‚»‚Ì‚P
 (long-operation
   (with-open-file (stream (merge-pathnames "newlisp_index.html" ed::*newlisp-directory*))
     (do ((kwd nil)
@@ -330,7 +360,7 @@
                           (match-string 1))
                     kwd :test #'equal)))))
 
-;; ãã®ï¼’
+;; ‚»‚Ì‚Q
 (save-excursion
   (set-buffer "newlisp_manual.html")
   (goto-char (point-min))
@@ -342,8 +372,8 @@
 ("GNUFDL" "GNUGPL" "NaNp" "XML" "abort" "abs" "acos" "acosh" "add" "address" "amb" "and" "append" "append-file" "appendix" "apply" "args" "arithmetic" "array" "array-funcs" "array-list" "arrayp" "arrays" "asin" "asinh" "assoc" "atan" "atan2" "atanh" "atomp" "base64-dec" "base64-enc" "bayes-query" "bayes-train" "begin" "beta" "betai" "bind" "binomial" "bit_and" "bit_exclusive" "bit_inclusive" "bit_not" "bit_operators" "bit_shift" "bits" "case" "catch" "ceil" "change-dir" "char" "chop" "cilk" "clean" "close" "cmd_help" "colon" "colon_operator" "command-event" "commas" "cond" "cons" "constant" "context" "context_data" "context_modules" "context_objects" "context_rules" "context_vars" "contextp" "contexts" "copy" "copy-file" "cos" "cosh" "count" "cpymem" "crc32" "crit-chi2" "crit-z" "current-line" "curry" "daemon" "date" "date-value" "debug" "dec" "decimal_point" "def-new" "default" "default_function" "define" "define-macro" "delete" "delete-file" "delete-url" "deprecated" "destroy" "destructice" "destructive" "det" "device" "difference" "direct_exec" "directories_unix" "directories_win32" "directory" "directory_management" "directoryp" "distributed" "div" "dll" "do-until" "do-while" "doargs" "dolist" "dolust" "dostring" "dotimes" "dotree" "dump" "dup" "emptyp" "encrypt" "ends-with" "env" "environment" "erf" "error-event" "error-number" "error-text" "error_codes" "eval" "eval-string" "eval_rules" "example_prodcons" "exec" "exists" "exit" "exp" "expand" "explode" "expressions" "factor" "fft" "file-info" "filep" "filter" "financial" "find" "find-all" "first" "flat" "float" "floating_point" "floatp" "floor" "flow_and_or" "flow_catch_throw" "flt" "fn" "foop" "for" "for-all" "forcing_prompt" "fork" "format" "func_memory" "function_ref" "functions" "functions_alphabetical" "fv" "gammai" "gammaln" "gcd" "get-char" "get-float" "get-int" "get-long" "get-string" "get-url" "global" "globalp" "hash" "http_api" "http_mode" "if" "if-not" "ifft" "implicit_default" "implicit_indexing" "implicit_modify" "implicit_rest_slice" "import" "importing_libraries" "inc" "index" "indexing" "inetd_daemon" "initialization" "input_output" "int" "int_float" "integerp" "internals" "internationalization" "intersect" "introduction" "invert" "irr" "join" "lambda" "lambda-macro" "lambda_expressions" "lambdap" "last" "legalp" "length" "let" "letex" "letn" "linking" "list" "list_processing" "listp" "load" "loading_contexts" "local" "local_domain_server" "log" "logging" "logical" "lookup" "lower-case" "macrop" "main-args" "make-dir" "make_nondestructive" "map" "mat" "match" "matrices" "max" "max_mem" "member" "min" "mod" "montecarlo" "mul" "multi_processing" "multiply" "name" "naming" "net-accept" "net-close" "net-connect" "net-error" "net-eval" "net-interface" "net-listen" "net-local" "net-lookup" "net-peek" "net-peer" "net-ping" "net-receive" "net-receive-from" "net-receive-udp" "net-select" "net-send" "net-send-to" "net-send-udp" "net-service" "net-sessions" "new" "newlisp_classes" "newlisp_objects" "nil_and_true" "nilp" "no_init" "normal" "not" "now" "nper" "npv" "nth" "nullp" "numberp" "open" "options" "or" "ostype" "overwrite" "pack" "parse" "parse-date" "pass_big" "pattern" "peek" "pipe" "pmt" "pop" "pop-assoc" "post-url" "pow" "predicates" "pretty-print" "primitivep" "print" "println" "prob-chi2" "prob-z" "process" "processes" "prompt" "prompt-event" "protectedp" "protection" "push" "put-url" "pv" "quote" "quotep" "rand" "random" "randomize" "read-buffer" "read-char" "read-expr" "read-file" "read-key" "read-line" "real-path" "ref" "ref-all" "reflection" "regex" "regex-comp" "remove-dir" "rename-file" "replace" "reset" "rest" "return" "reverse" "rotate" "round" "save" "scope_context" "scope_global" "scoping" "search" "seed" "seek" "select" "semaphore" "sequence" "sequence_creating" "serializing" "series" "set" "set-locale" "set-ref" "set-ref-all" "setf" "setq" "sgn" "share" "shared-lib" "shell" "signal" "silent" "sin" "sinh" "sleep" "slice" "socket_tcpip" "sort" "source" "spawn" "sqrt" "stack_size" "starts-with" "startup" "string" "string_operators" "stringp" "sub" "swap" "switching" "sym" "symbol_names" "symbolp" "symbols" "sync" "sys-error" "sys-info" "system_functions" "system_symbols" "systemsymbol" "tanh" "tcpip_server" "throw" "throw-error" "time" "time-of-day" "timedate" "timer" "title-case" "trace" "trace-highlight" "transpose" "trim" "truep" "type_ids" "unicode" "unicode_utf8" "unify" "unique" "unless" "unpack" "until" "upper-case" "url_files" "users_manual" "utf8" "utf8_capable" "utf8len" "uuid" "wait-pid" "when" "while" "working_dir" "write-buffer" "write-char" "write-file" "write-line" "xml-error" "xml-parse" "xml-type-tags" "zerop")
 441
 
-;; ã‚­ãƒ¼ãƒ¯ãƒ¼ãƒ‰ç”¨ï¼Ÿ
-(with-open-file (stream ã©ã“ã‹ :direction :output)
+;; ƒL[ƒ[ƒh—pH
+(with-open-file (stream ‚Ç‚±‚© :direction :output)
   (write (shell-command-to-string "newlisp -n -e \"(dolist (s (symbols)) (println s))\"")
          :stream stream
          :escape nil
@@ -355,18 +385,19 @@
 (export 'newlisp-show-log-buffer)
 (defun newlisp-show-log-buffer ()
   (interactive)
-  (switch-to-buffer *newlisp-process-buffer-name*)
-  (goto-char (point-max)))
+  ;; (switch-to-buffer *newlisp-process-buffer-name*)
+  ;; (goto-char (point-max))
+  (display-buffer *newlisp-process-buffer*) )
 
 ;; prompt-debugger-mode
 ;; " 0>"
 ;; [-> 2 ] s|tep n|ext c|ont q|uit >
 ;; (read-char *keyboard*)
 ;; newlisp-show-log-buffer
-;; tail-f ä½¿ãˆãªã„ã®ã‹ã­
+;; tail-f g‚¦‚È‚¢‚Ì‚©‚Ë
 
 (defmacro defindent (operator indentation)
-  ;; ã‚·ãƒ³ãƒœãƒ«ãŒå‚ç…§ (export) ã§ããªã„ã¨ã‚¤ãƒ³ãƒ‡ãƒ³ãƒˆãŒåŠ¹ã‹ãªã„ã®ã§æ³¨æ„
+  ;; ƒVƒ“ƒ{ƒ‹‚ªQÆ (export) ‚Å‚«‚È‚¢‚ÆƒCƒ“ƒfƒ“ƒg‚ªŒø‚©‚È‚¢‚Ì‚Å’ˆÓ
   (let ((symbol (intern (string operator) "user")))
     `(setf (get ',symbol 'ed:lisp-indent-hook) ',indentation)))
 
@@ -390,7 +421,7 @@
 
 (in-package "winapi")
 
-;; ä½¿ã„æ–¹åˆ†ã‹ã‚Šã¾ã›ã‚“
+;; g‚¢•û‚ª•ª‚©‚è‚Ü‚¹‚ñ
 (c:*define-dll-entry LPSTR newlispEvalStr (LPSTR)
   ed:*newlisp-dll* "newlispEvalStr")
 
