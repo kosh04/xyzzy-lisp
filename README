@@ -1,0 +1,20 @@
+## CommonLispから移植したものなど
+
+* cl.l - xyzzyにないCommonLisp関数群
+* corman_search.l - CommonLispのみで文字列検索
+  ただし組み込み関数ed:string-matchの方が明らかに便利
+
+## Emacsから移植したもの
+
+* regexp-opt.l - 正規表現生成支援ツール
+
+## 自作もの
+
+* cygwin.l - 今のところmanコマンドが使えるくらい
+* newlisp.l - newLISP編集用メジャーモード
+* redef.l - ~/lisp/以下の関数の再定義
+* util.l - その他小物
+
+※GitHubのWebページの指定文字コード(utf8)と各ファイルの文字コード(sjis)が異
+なるため、ブラウザでの表示が化けて見えるのは仕様です。
+
