@@ -30,16 +30,16 @@
 (setq *html-help-path* (merge-pathnames "reference.chm" (etc-path)))
 
 ;;; builtin.l
-#-xyzzy
+#+NIL
 (defun listen (&optional input-stream)
   ;; 使わない方がいいと思う。
   ;; こんなやり方もあるよ、ということで
-  #+nil
+  #+case1
   (let ((ch (read-char-no-hang input-stream nil nil)))
     (prog1
         (and ch t)
       (and ch (unread-char ch input-stream))))
-  #+nil
+  #+case2
   (eq (peek-char nil input-stream nil :eof) :eof))
 
 ;;; buf-menu.l
@@ -141,7 +141,7 @@
                         (point)))))))
 
 ;;; filer.l
-#-xyzzy
+#+NIL
 (defun filer-shell-execute ()
   (let ((file (filer-get-current-file)))
     (when (or (null *filer-query-before-process*)
@@ -158,12 +158,12 @@
         ((filer-modal-p) (filer-cancel))
         (t (quit))))
 
-#|
+#+NIL
 (defun open-filer ()
   (interactive)
   (multiple-value-bind (files result)
       (let ((omode (get-ime-mode))
-            ;; ここで変数決めると外側の束縛が無意味になってしまうのでやめる
+            ;; ここで変数決めると外側の束縛が無意味になってしまう
             (*filer-primary-directory*
              (if (file-visited-p)
                  (directory-namestring (get-buffer-file-name))
@@ -173,7 +173,7 @@
           (and *filer-modal* (toggle-ime omode))))
     (when result
       (filer-readin-1 files))))
-|#
+
 
 (defun filer-list-archive ()
   (let ((file (ed::filer-fetch-file t)))
@@ -212,7 +212,7 @@
 (defun filer-delete ()
   (long-operation
     (let ((marks (or (filer-get-mark-files)
-                     ;; マークがなければ、カーソル位置のファイルを削除対象にする
+                     ;; マークがなければカーソル位置のファイルを削除対象にする
                      (list (filer-get-current-file)))))
       (when (and marks
                  (if *filer-query-delete-precisely*
@@ -230,6 +230,47 @@
                             delete-non-empty-directory))
           (filer-do-delete marks))
         (message "done.")))))
+
+(defun filer-rename ()
+  (let ((old (filer-get-mark-files))
+	(goto-new nil)
+	files)
+    (cond (old
+	   (when (endp (cdr old))
+	     (setq old (car old))))
+	  (t
+	   (when (filer-current-file-dot-dot-p)
+	     (return-from filer-rename nil))
+	   (setq old (filer-get-current-file))
+	   (setq goto-new t)))
+    (cond ((listp old)
+	   (setq files (ed::filer-get-rename-pattern old))
+	   (unless files
+	     (return-from filer-rename nil)))
+	  (t
+	   (let ((new (ed::filer-get-rename-file (file-namestring (namestring old)))))
+	     (unless new
+	       (return-from filer-rename nil))
+	     (setq files (acons old (merge-pathnames new (filer-get-directory)) nil)))))
+    (filer-subscribe-to-reload (filer-get-directory))
+    (mapc #'(lambda (x)
+              (let ((old (car x))
+                    (new (cdr x)))
+                (message "~A から ~A へリネーム..." old new)
+                (do-events)
+                (rename-file old new)
+                ;; ファイルに関連付けられているバッファもリネーム
+                (let ((oldbuf (get-file-buffer old)))
+                  (when (and oldbuf (not (file-directory-p new)) )
+                    (set-buffer-file-name new oldbuf)
+                    (rename-buffer (file-namestring new) oldbuf)))
+                (filer-subscribe-to-reload (directory-namestring new))))
+	  files)
+    (when goto-new
+      (filer-demand-reload)
+      (filer-goto-file (file-namestring (cdar files))))
+    (message "done.")
+    t))
 
 ;;; mouse.l
 (defun default-drag-and-drop-hook (window files)
@@ -314,6 +355,12 @@
                         sym 'lisp::variable-documentation t doc-path)))
               (when doc
                 (format t "  Variable: ~A~%" doc)))))
+        ;; もうちょい見易く
+        (toggle-read-only t)
+        (funcall (some #'(lambda (mode)
+                           (and (fboundp mode) mode))
+                       '(user::info-modoki-mode
+                         lisp-mode)))
         (message "Building apropos list...done")))))
 
 ;;; kbdmacro.l
@@ -412,7 +459,22 @@
                     *default-buffer-mode*))))
 
 ;;; tail-f.l
-;; tail-fはautoloadだから定義が上書きされる可能性があるな
+
+;; tail-f.lはautoloadで読み込まれるので、明示的にファイルを読み込んで
+;; から関数を上書きする必要がある。
+(require "tail-f")
+
+;; 文字コード指定の追加
+(defun tail-f (filename &optional encoding)
+  (interactive "ftail-f: \n0zEncoding: " :title0 "tail-f")
+  (setq encoding (or encoding *default-process-encoding*))
+  (let* ((buffer (tail-f-internal filename))
+         (process (buffer-process buffer)))
+    (set-process-incode process encoding)
+    (set-process-outcode process encoding)
+    (set-buffer-fileio-encoding encoding buffer)
+    (set-buffer buffer)))
+
 (defun tail-f-internal (filename)
   (setq filename (namestring filename))
   (let ((buffer (tail-f-find-buffer filename)))
@@ -430,18 +492,15 @@
       ;; プロセスマーカー考慮してないかも
       (set-process-filter (buffer-process buffer)
                           #'(lambda (proc str)
-                              (display-buffer #2=(process-buffer proc))
-                              (when #1=(get-buffer-window #2#)
+                              (display-buffer #1=(process-buffer proc))
+                              (when #2=(get-buffer-window #1#)
                                 (with-selected-window
-                                  ;; (set-buffer #2#)
-                                  (set-window #1#)
+                                  ;; (set-buffer #1#)
+                                  (set-window #2#)
                                   (goto-char (point-max))
                                   (insert str)
                                   (recenter -1)))
-                              (refresh-screen)))
-      ;; (set-process-incode (buffer-process buffer) *encoding-utf8n*)
-      ;; (set-process-outcode (buffer-process buffer) *encoding-utf8n*)
-      )
+                              (refresh-screen))))
     buffer))
 
 

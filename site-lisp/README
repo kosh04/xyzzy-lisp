@@ -2,7 +2,9 @@
 
 * cl.l - xyzzyにないCommonLisp関数群
 * corman_search.l - CommonLispのみで文字列検索
-  ただし組み込み関数ed:string-matchの方が明らかに便利
+  ただし正規表現が使えるed:string-matchの方が明らかに便利
+* dbind.l - destructuring-bind が使えるように
+  lisp/condition.l に若干修正が必要 (see lisp/condition.diff)
 
 ## Emacsから移植したもの
 
@@ -13,7 +15,12 @@
 * cygwin.l - 今のところmanコマンドが使えるくらい
 * newlisp.l - newLISP編集用メジャーモード
 * redef.l - ~/lisp/以下の関数の再定義
-* util.l - その他小物
+* .xyzzy.l - その他小物
+* libmagic.l - ファイル判別ライブラリ(file)
+  必要なファイル
+  - etc/magic.mgc
+  - etc/magic1.dll
+  - etc/regex2.dll
 
 ※GitHubのWebページの指定文字コード(utf8)と各ファイルの文字コード(sjis)が異
 なるため、ブラウザでの表示が化けて見えるのは仕様です。

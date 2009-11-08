@@ -8,7 +8,7 @@
 
 (in-package "editor")
 
-(export '(*cygwin-root* *manpath*))
+(export '(*cygwin-root*))
 (export '(run-cygwin-console shell-on-cygwin cygpath))
 
 (defvar *cygwin-root* "C:/cygwin/"
@@ -32,6 +32,9 @@
   (interactive)
   (set-buffer (get-buffer-create "*Bash*"))
   (let ((*eshell* "bash -i")
+        (*cygwin-environment-alist*
+         `(("PS1" . "[\\u@\\h:\\w]\\n\\$ ")
+           ,@ed::*cygwin-environment-alist*))
         (proc (buffer-process (selected-buffer))))
     (and proc (eq (process-status proc) :run)
          (return-from shell-on-cygwin t))
@@ -39,10 +42,10 @@
     (ed::shell-mode)
     (make-process *eshell*
                   :output (selected-buffer)
-                  :environ '(("PS1" . "[\\u@\\h:\\w]\\n\\$ "))
-                  :incode *encoding-euc-jp*
-                  :eol-code *eol-guess*
-                  )
+                  :environ *cygwin-environment-alist*
+                  :incode *encoding-sjis*
+                  :outcode *encoding-euc-jp*
+                  :eol-code *eol-guess*)
     ))
 
 
@@ -135,24 +138,32 @@
 
 
 ;;; UN*X のマニュアルを見る
-;;; 参考: $EMACS/lisp/man.el
-;;; "LANG=C man man | [col -b | colcrt]" を使う方法もある
-;;; TODO:
-;;; * 日本語MANも見たい (cygwin側で設定が必要、それと文字コード関連)
-;;; * 下線、太線の強調
-;;; * manual-mode (view-mode, less-mode)
-;;; (set-text-attribute FROM TO TAG :bold t :underline t)
+
+;; 参考: $EMACS/lisp/man.el
+;; "LANG=C man man | [col -b | colcrt]" を使う方法もある
+;; TODO:
+;; * 日本語MANも見たい (cygwin側で設定が必要、それと文字コード関連)
+;; * 下線、太線の強調
+;; * manual-mode (view-mode, less-mode)
+;; (set-text-attribute FROM TO TAG :bold t :underline t)
+
 ;; '(1.ユーザ用コマンド 2.システムコール 3.ライブラリ関数 4.デバイスファイル
 ;;   5.各種設定ファイル 6.ゲームプログラム 7.習慣等の説明 8.管理者用コマンド)
 
 ;; Known bugs:
 ;; - 元の表示とは違う位置で改行が入る
 
-;; 色付けは未実装
+(export '(manual-entry
+          man
+          manpage-fontify-buffer))
+
+(export '(*manpath*
+          *manual-cache-filename*))
+
+;; FIXME: 色付けは未実装
 ;; 制御文字を取り除いてテキスト表示するのみ
 ;; 取り除くべき制御文字に「改行文字」も含まれている気がする。
 ;; http://www.isthe.com/chongo/tech/comp/ansi_escapes.html
-(export 'manpage-fontify-buffer)
 (defun manpage-fontify-buffer ()
   (interactive)
   (labels ((trim-buffer (regexp)
@@ -164,12 +175,9 @@
     (trim-buffer "\b.")         ; 太字 :bold
     ))
 
-;; make-process 版 man-page
-
+;; (use #'make-process)
 ;; 日本語版マニュアル配布元: JM Project - http://www.linux.or.jp/JM/
 ;; 公式配布のマニュアルの文字コードはeuc-jp:lfのみ提供だったはず
-(export '(manual-entry man))
-
 (defun man (str &optional section)
   (interactive (list (read-manual-entry "Manual entry: ") *prefix-value*))
   (if (string= str "")
@@ -192,7 +200,7 @@
      ;; エラーキャッチはできるんだが、音と表示が出ない
      #'(lambda (process)
          (unwind-protect
-             ;; $ man -k STRING も返り値１になるようだが使わないので気にしないことにする
+             ;; $ man -k STRING も返り値１になるようだが使わないので無視する
              (cond ((/= 0 (process-exit-code process))
                     (save-excursion
                       (set-buffer tmpbuf)
@@ -218,9 +226,8 @@
 
 (setf (symbol-function 'manual-entry) #'man)
 
-#|
-;; call-process版
-;; (export 'man-page)
+;; (use #'call-process)
+#+NIL
 (defun man-page (str &optional section)
   "cygwin のマニュアルを参照します."
   (interactive (list (read-manual-entry "Manual entry: ") *prefix-value*))
@@ -249,9 +256,8 @@
               (trim-buffer ".") ; 太字
               (toggle-read-only t)))
         (delete-file tempfile)))))
-|#
 
-;; cygwin-mount.l参照しようか
+;; cygwin-mount.l が参考になりそう
 ;; http://cygwin.com/cygwin-ug-net/using-utils.html#cygpath
 (defun cygpath (pathname &key (type :unix))
   "Convert Unix and Windows format paths, or output system path information."
@@ -264,34 +270,30 @@
     (:windows (map-slash-to-backslash (namestring pathname)))))
 
 (defvar *manpath* '("/usr/local/man" "/usr/share/man" "/usr/man")
-  "環境変数 MANPATH と大体同じ.")
-
-(defun manual-list ()
-  (long-operation
-    (let ((*manpath* (mapcar #'cygpath *manpath*)))
-      (delete-duplicates
-       (mapcan #'(lambda (x)
-                   (mapcar #'(lambda (path)
-                               ;; filename.ext1.ext2 => filename
-                               (pathname-name (pathname-name path)))
-                           (directory x :recursive t :file-only t
-                                      ;; "*.1.gz"
-                                      :wild '("*.1" "*.gz" "*.n" "*.n.gz"))))
-               *manpath*)
-       :test #'string-equal))))
-
-;; マニュアル一覧の作成に時間がかかるのをどうにかしたいが...
-;; - コンパイル時に展開 (eval-when ...)
-;; - セッションファイルのように別ファイルにして、そこから読み込み
+  "環境変数 $MANPATH と大体同じ.")
+(defvar *manual-cache-filename* "~/usr/.man-cache.l"
+  "manを参照するためのトピックリストを保存するファイル名.")
 (defvar *manual-list* nil)
 
-(defun build-manual-list (&optional nomsg force-update)
-  (or (and *manual-list* force-update)
+;; マニュアルファイルを更新する場合は (ed::manual-list t)
+(defun manual-list (&optional force-update nomsg)
+  (if (or (null *manual-list*) force-update)
       (long-operation
         (unless nomsg (message "Making manual list..."))
-        (setq *manual-list* (manual-list))
-        (unless nomsg (message "Making manul list..done"))))
-  t)
+        (setq *manual-list*
+              (delete-duplicates
+               (mapcan #'(lambda (x)
+                           (mapcar #'(lambda (path)
+                                       ;; filename.ext1.ext2 => filename
+                                       (pathname-name (pathname-name path)))
+                                   (directory x :recursive t :file-only t
+                                              ;; :wild "*.*"
+                                              )))
+                       (mapcar #'cygpath *manpath*))
+               :test #'string-equal))
+        (unless nomsg (message "Making manul list..done"))
+        (save-manual-cache *manual-cache-filename*)))
+  *manual-list*)
 
 ;; $CYGWIN/etc/profile
 ;; MANPATH=/usr/local/man:/usr/share/man:/usr/man:$MANPATH
@@ -299,12 +301,33 @@
 ;; woman-file-name-all-completions
 (defun read-manual-entry (prompt &key default)
   (completing-read prompt
-                   (or *manual-list*
-                       (progn
-                         (build-manual-list)
-                         *manual-list*))
+                   (manual-list)
                    :case-fold t
                    :default default
                    :must-match nil))
+
+(defun save-manual-cache (filename)
+  (with-open-file (outfile filename
+                           :direction :output
+                           :if-exists :supersede
+                           :if-does-not-exist :create)
+    (princ (concat
+            ";;; Cygwin manual list. -*- mode:lisp -*-\n"
+            ";;; This file is generate automatically. do not edit.\n")
+           outfile)
+    (print `(in-package "editor") outfile)
+    (terpri outfile)
+    (print `(setq *manual-list* ',(manual-list)) outfile)
+    (terpri outfile))
+  t)
+
+(defun restore-manual-cache (&optional filename)
+  (when (or filename
+            (and #1=*manual-cache-filename*
+                 (file-exist-p #1#)
+                 (setq filename #1#)))
+    (load filename)))
+
+(add-hook '*post-startup-hook* 'restore-manual-cache)
 
 ;;; cygwin.l ends here.

@@ -2,17 +2,57 @@
 
 ;;; This file is NOT part of xyzzy.
 
-(provide "util")
+(provide ".xyzzy")
 
 (in-package "user")
 
-;;; estartup.l
+(require "cl")
+
+;; WIN32API
+(require "wip/winapi")
+(require "api")
+;; コレのおかげでパッケージ名を省略できることを忘れずに...
+(use-package "winapi")
+
+;; 略記
+(defun hwnd () (get-window-handle))
+;; (setf (symbol-function 'hWndMain) #'get-window-handle)
+(si:*fset 'TEXT #'si:make-string-chunk)
+(c:*define NULL 0)
+
+(require "wip/winapi")
+;; wip/winapi.l で定義済み
+;; (c:define-dll-entry winapi:BOOL ShowWindow (winapi:HWND c:int) "user32")
+(defun iconify-xyzzy (&optional (hwnd (get-window-handle)))
+  "起動中の xyzzy を最小化します."
+  (interactive)
+  (ShowWindow hwnd SW_MINIMIZE)) ; 6
+(global-set-key '(#\C-x #\C-c) 'iconify-xyzzy)
+
+;; http://hie.s64.xrea.com/xyzzy/note/buffer.html#maximize-xyzzy
+(c:*define-dll-entry winapi:BOOL IsZoomed (winapi:HWND) "user32")
+(defun maximize-xyzzy ()
+  (interactive)
+  (ShowWindow (get-window-handle) SW_MAXIMIZE)) ; 3
+(defun restore-xyzzy ()
+  "元のサイズに戻す."
+  (interactive)
+  (ShowWindow (get-window-handle) SW_RESTORE)) ; 9
+(global-set-key #\M-F10
+                (defun toggle-xyzzy-window ()
+                  (interactive)
+                  (if (zerop (IsZoomed (get-window-handle)))
+                      (maximize-xyzzy)
+                      (restore-xyzzy))))
+
+;; from estartup.l
 (defun load-xyzzyrc ()
   "$XYZZY/.xyzzy のロード"
   (trap-errors
     (let ((*loading-user-initial-file* t)) ; 何の効果が?
       (load (merge-pathnames ".xyzzy" (si:system-root))
             :if-does-not-exist nil :verbose nil :print nil))))
+;; USBからの起動に使えそう
 ;; (add-hook '*post-startup-hook* 'load-xyzzyrc)
 
 (defun current-word (&optional highlight?)
@@ -31,7 +71,7 @@
             (buffer-substring from to)
           (and highlight? (reverse-region from to t)))))))
 
-;;; XyzzyWikiから拾ってきたんだと思う
+;; XyzzyWikiから拾ってきたんだと思う
 (defun recentf-open-files ()
   "履歴からファイルを開く"
   (interactive)
@@ -67,9 +107,9 @@
                 (refresh-screen))))
 |#
 
-;;; 閉じたタブを元に戻す、を自分用に改変
-;;; ダイアログ使いたい
-;;; http://white.s151.xrea.com/wiki/index.php?memo%2Fxyzzy%2Ffile#k96261fd
+;; 閉じたタブを元に戻す、を自分用に改変
+;; TODO: ダイアログ使いたい
+;; http://white.s151.xrea.com/wiki/index.php?memo%2Fxyzzy%2Ffile#k96261fd
 (defvar *recent-killed-buffers* nil)
 
 (defun push-visited-file-recent-killed (buffer)
@@ -93,7 +133,7 @@
                         (delete file *recent-killed-buffers* :test #'equal))
                   (refresh-screen))))
 
-;;; 'si:*trace-on-error* とかクオートされたシンボルの値を評価したい
+;; 'si:*trace-on-error* とかクオートされたシンボルの値を評価したい
 (defun get-variable-value ()
   "現在のポイント上にあるシンボルを評価します."
   (interactive)
@@ -121,7 +161,6 @@
 (define-key spec-map #\C-e 'get-variable-value)
 
 (defun kitaa ()
-  "テンション上がってきた."
   (interactive)
   (let ((kita-list
          '("(ﾟ∀ﾟ)" "( ﾟ∀)" "(   ﾟ)" "(    )" "(ﾟ   )" "(∀ﾟ )" "(ﾟ∀ﾟ)")
@@ -139,8 +178,8 @@
        (use-syntax-table #1#))))
 (setf (get 'with-syntax-table 'ed:lisp-indent-hook) 1)
 
-;;; $EMACS/lisp/comint.el
-;;; (point) が EOF ならプロセス終了
+;; $EMACS/lisp/comint.el
+;; (point) が EOF ならプロセス終了
 (defun comit-delchar-or-maybe-eof (&optional arg)
   "Delete ARG characters forward or send an EOF to subprocess.
 Sends an EOF only if point is at the end of the buffer and there is no input."
@@ -167,6 +206,22 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
         (goto-bol))))
 (define-key ed::*shell-mode-map* #\C-a 'ed::shell-goto-bol)
 
+(defun shell-next-prompt (&optional (n 1))
+  (interactive "p")
+  (cond ((plusp n)
+         (scan-buffer *shell-prompt-regexp* :regexp t :reverse nil :tail t :no-dup nil))
+        ((minusp n)
+         (previous-line)
+         (scan-buffer *shell-prompt-regexp* :regexp t :reverse t :tail t :no-dup nil))
+        (:else nil)))
+
+(defun shell-previous-prompt (&optional (n 1))
+  (interactive "p")
+  (shell-next-prompt (- n)))
+
+(define-key ed::*shell-mode-map* '(#\C-c #\C-p) #'shell-previous-prompt)
+(define-key ed::*shell-mode-map* '(#\C-c #\C-n) #'shell-next-prompt)
+
 (global-set-key '(#\C-c #\s)
                 (defun shell-popup ()
                   (interactive)
@@ -187,23 +242,32 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
 ;; (global-set-key '(#\C-x #\n #\n) 'narrow-to-region)
 ;; (global-set-key '(#\C-x #\n #\w) 'widen)
 
-;;; transient-mark-mode もどき
+;; transient-mark-mode もどき
 (defun keyboard-quit ()
   (interactive)
   (set-mark t)                  ; マークをクリア (ChangeLog Version 0.1.0.107)
   (error 'quit))
 (global-set-key #\C-g 'keyboard-quit)
 
-;; 末尾の改行も考慮するならread-lineは多値でとるべき
+(defun echo (input &optional output)
+  #+NIL
+  ;; 1文字単位はさすがに遅い
+  (do ((c #1=(read-char input nil :eof) #1#))
+      ((eq c :eof))
+    (write-char c output))
+  #+xyzzy
+  (loop
+    ;; 末尾の改行も考慮するならread-lineは多値でとるべき
+    (multiple-value-bind (line missing-newline-p)
+        (read-line input nil :eof)
+      (when (eq line :eof) (return))
+      (princ line output)
+      (unless missing-newline-p (terpri output)))))
+
 (defun cat (file &optional stream)
   "print FILE contents to STREAM (default *standard-output*)."
   (with-open-file (fp file :direction :input)
-    (loop
-      (multiple-value-bind (line missing-newline-p)
-          (read-line fp nil nil)
-        (unless line (return))
-        (princ line stream)
-        (unless missing-newline-p (terpri stream))))))
+    (echo fp stream)))
 
 (defun shell-command-to-string (command)
   "Execute shell command COMMAND and return its output as a string."
@@ -225,10 +289,12 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
 (defun keymaplist (&optional force-update)
   (or (and (not force-update)
            *keymaplist*)
-      (do-all-symbols (sym *keymaplist*)
-        (if (and (boundp sym)
-                 (keymapp (eval sym)))
-            (push sym *keymaplist*)))))
+      (long-operation
+	(do-all-symbols (sym *keymaplist*)
+	  (if (and (boundp sym)
+		   (keymapp (eval sym)))
+	      (push sym *keymaplist*))
+	  ))))
 
 (defun describe-binding-anymap (keymap)
   "任意のキーマップの割り当て一覧を表示."
@@ -257,7 +323,7 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
     (goto-line (nth (position fn fnlst :test #'equal) nlst))))
 (define-key spec-map #\C-l 'goto-function)
 
-;;; (require "paren") とかにもそれなりに対応
+;; (require "paren") とかにもそれなりに対応
 (defun ffap-find-file (filename)
   "find file at point."
   (interactive "fFind-file: " :default0 (pathname-at-point *prefix-args*))
@@ -301,8 +367,8 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
           (and path (reverse-region from to t))
           (set-default-directory odir))))))
 
-;;; xyzzy スレ >>383
-;;; http://yasai.2ch.net/win/kako/979/979930156.html#383
+;; xyzzy スレ >>383
+;; http://yasai.2ch.net/win/kako/979/979930156.html#383
 (defun colortest ()
   "番号と色の対応確認。(前景色:背景色)"
   (interactive)
@@ -318,12 +384,6 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
         (insert "\n"))
       (goto-char (point-min)))
     (pop-to-buffer obuffer)))
-
-;; よく分からない
-(defconstant text-color-list
-  '(none red green yellow blue purple cyan white black brown olive
-    ocher azure violet 浅葱色？ gray)
-  "set-text-attribute などで使える色の順番.")
 
 (defun find-library (lib)
   "*load-path* の中から適当に選んで開く."
@@ -346,9 +406,10 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
                                *load-path*))
                    :case-fold t :must-match t))
 
-(global-set-key '(#\C-c #\f) 'find-library)
+;; (global-set-key '(#\C-c #\f) 'find-library)
 
-;;; ミニバッファ内で単語削除
+
+;; ミニバッファ内で単語削除
 ;; http://white.s151.xrea.com/wiki/index.php?memo%2Fxyzzy%2Fminibuffer#w95b8c17
 ;; http://xyzzy.s53.xrea.com/wiki/index.php?tips%2F%A5%DF%A5%CB%A5%D0%A5%C3%A5%D5%A5%A1%A4%C7%A4%D2%A4%C8%A4%C4%BE%E5%A4%CE%A5%C7%A5%A3%A5%EC%A5%AF%A5%C8%A5%EA%A4%D8
 (defun delete-word (&optional (arg 1))
@@ -364,11 +425,12 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
                       minibuffer-local-map))
   (define-key keymap #\C-w 'backward-delete-word))
 
-;;; ファイル名のないバッファでの 'save-buffer のエラーをマイルドに
+;; ファイル名のないバッファでの save-buffer のエラーをマイルドに
 (add-hook '*save-buffer-no-filenames-hook*
           (defun no-filenames-error ()
             (plain-error "ファイル名がありません")))
 
+;; arglist
 (defun show-arglist (symbol)
   (interactive "SArglist: ")
   (message "(~A ~{~A~^ ~})" symbol (arglist symbol)))
@@ -420,8 +482,8 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
 (export 'message!)
 (in-package "user")
 
-;;; tips/ファイルの暗号化(Rijndael) より
-;;; http://xyzzy.s53.xrea.com/wiki/index.php?cmd=read&page=tips%2F%A5%D5%A5%A1%A5%A4%A5%EB%A4%CE%B0%C5%B9%E6%B2%BD(Rijndael)
+;; tips/ファイルの暗号化(Rijndael) より
+;; http://xyzzy.s53.xrea.com/wiki/index.php?cmd=read&page=tips%2F%A5%D5%A5%A1%A5%A4%A5%EB%A4%CE%B0%C5%B9%E6%B2%BD(Rijndael)
 (defmacro with-temp-file ((temp-file) &body body)
   `(let ((,temp-file ,(make-temp-file-name)))
      (unwind-protect
@@ -458,12 +520,12 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
       ;; *.lc が存在して *.l が存在しないなんて可能性があるんだが
       (trap-errors (compile-file (substring siteinit 0 -1))))))
 
-;;; 環境変数の変更が反映されないのはしょうがないのか
-;;; [注意]
-;;; (kill-xyzzy)する時にyes-no-or-cancel-p/yes-or-no-pに引っかかるとイヤになる
-;;; [関連するもの] バッファプロセス、保存、排他制御
-;;; (need-buffer-save-p buf) (verify-buffers-file-modtime) (buffer-modified-p &optional buf)
-;;; *kill-xyzzy-hook*に時間をかけるとまずいかもね -> 先に実行させておこう
+;; 環境変数の変更が反映されないのはしょうがないのか
+;; [注意]
+;; (kill-xyzzy)する時にyes-no-or-cancel-p/yes-or-no-pに引っかかるとイヤになる
+;; [関連するもの] バッファプロセス、保存、排他制御
+;; (need-buffer-save-p buf) (verify-buffers-file-modtime) (buffer-modified-p &optional buf)
+;; *kill-xyzzy-hook*に時間をかけるとまずいかもね -> 先に実行させておこう
 (defun reboot-xyzzy (&optional cleanup)
   "xyzzyを再起動する."
   (interactive "P")
@@ -480,7 +542,10 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
         (*query-kill-xyzzy-hook* nil))
     (and (call-process (merge-pathnames "xyzzy.exe" (si:system-root))
                        ;; 環境変数の設定
-                       :environ `(("XYZZYHOME" . ,(si:system-root))
+                       :environ `(("XYZZYHOME" . ,(or (si:getenv "XYZZYHOME")
+                                                      (map-slash-to-backslash
+                                                       (remove-trail-slash
+                                                        (si:system-root)))))
                                   ;; 設定ファイル (xyzzy.ini等) のディレクトリ
                                   ("XYZZYCONFIGPATH" . ,(user-config-path)))
                        :no-std-handles t
@@ -489,7 +554,7 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
                        :wait nil)
          (kill-xyzzy))))
 
-;;; @@describeシリーズ
+;; @@describeシリーズ
 
 (defun symbol-describe (symbol)
   `((:name     ,(symbol-name symbol))
@@ -572,6 +637,7 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
       (buffer-lines)
       (+ (window-lines) (get-window-start-line))))
 
+;; 普段見えないバッファだって参照したいときもある
 (defun switch-to-invisible-buffer (buffer)
   (interactive
       (list (completing-read
@@ -586,14 +652,7 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
 (defun point-of (fn &rest args)
   "関数FNを呼び出した後のポイント位置を返す."
   (save-excursion (apply fn args) (point)))
-;; (point-of #'(lambda () (goto-char (point-min)))) ;=> 0
-
-;; 対括弧入力派にはあまり必要がないけど
-(defun close-all-parens-in-sexp ()
-  (interactive "*")
-  (while (save-excursion (backward-up-list 1 'noerror))
-    (insert ")")))
-;; (global-set-key '(#\C-c #\C-]) 'close-all-parens-in-sexp)
+;; (point-of #'goto-eol)
 
 (defun map-internal-to-binary (input-string-or-stream &optional output-stream)
   (convert-encoding-to-internal *encoding-binary*
@@ -615,7 +674,7 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
     (narrow-to-region from to)
     (query-replace "\\" "/" 'noerror)))
 
-;;; $EMACS/lisp/simple.el
+;; $EMACS/lisp/simple.el
 (defun emacs-delete-blank-lines ()
   "On blank line, delete all surrounding blank lines, leaving just one.
 On isolated blank line, delete that one.
@@ -660,7 +719,7 @@ On nonblank line, delete any immediately following blank lines."
   (labels ((putnl (from to)
              (save-excursion
                (replace-string from to t))))
-    (while (up-list -1 'noerror))
+    ;; (while (up-list -1 'noerror))
     (save-excursion
       (save-restriction
         (narrow-to-region (point)
@@ -696,7 +755,7 @@ On nonblank line, delete any immediately following blank lines."
                    (error (c)
                      (error "~A" (si:*condition-string c))))))
     (with-output-to-temp-buffer (" *XYZZY macroexpansion*")
-      (format t "~S" expand)
+      (format t "~S~%" expand)
       (lisp-interaction-mode)
       (indent-line-sexp))))
 (global-set-key '(#\C-c #\C-m) 'xyzzy-macroexpand-1) ; C-c RET
@@ -705,6 +764,10 @@ On nonblank line, delete any immediately following blank lines."
 (defun name-encoding (name)
   "NAMEに対応する文字コードオブジェクトを返します."
   (gethash name *mime-charset-name-hash-table*))
+
+;; ヘルプをもう少し便利に
+;; (require "emacs-help")
+;; (global-set-key #\F1 'emacs-help)
 
 ;; Help
 (defvar help-map (make-sparse-keymap))
@@ -724,6 +787,8 @@ On nonblank line, delete any immediately following blank lines."
 
 (define-key help-map #\C-a 'about-dialog)
 (define-key help-map #\q 'quit)                        ; help-quit
+
+(define-key help-map #\C-l 'find-library)
 
 (defun call-help-list ()
   (interactive)
@@ -749,9 +814,9 @@ On nonblank line, delete any immediately following blank lines."
           (call-interactively sym)
           (error "関数が定義されていません: ~A" sym)))))
 
-;;; メニューから文字コード指定して #'revert-buffer
-;;; ファイルに関連付けられていないバッファだとエラーになるのは仕様です
-;;; xyzzy Part7 >>804
+;; メニューから文字コード指定して #'revert-buffer
+;; ファイルに関連付けられていないバッファだとエラーになるのは仕様です
+;; xyzzy Part7 >>804
 (defun add-menu-revert ()
   (let ((file-menu (get-menu *app-menu* 'ed::file)))
     (insert-popup-menu file-menu 8
@@ -762,12 +827,13 @@ On nonblank line, delete any immediately following blank lines."
     (insert-menu-separator file-menu 8)))
 (add-hook '*init-app-menus-hook* 'add-menu-revert)
 
-;;; *scratch* を xyzzy 終了時に保存
+;; *scratch* を xyzzy 終了時に保存
 (defun save-scratch-buffer ()
   (save-excursion
     (set-buffer (get-buffer-create "*scratch*"))
     (unless (zerop (buffer-size))
-      (write-file (merge-pathnames ".scratch.l" (si:system-root)) t))))
+      (write-file (merge-pathnames ".scratch.l" (si:system-root))
+                  'no-message))))
 (add-hook '*kill-xyzzy-hook* 'save-scratch-buffer)
 
 (defun toggle-scratch-buffer (&optional popup)
@@ -782,10 +848,50 @@ On nonblank line, delete any immediately following blank lines."
       )))
 (global-set-key '(#\C-x #\t #\s) 'toggle-scratch-buffer)
 
+(defvar *tail-f-command*
+  (merge-pathnames "tail-f.exe" (etc-path)))
+
 (defun tail-f-console (filename)
   (interactive "ftail-f: " :title0 "tail-f")
-  (launch-application (format nil "~A ~A"
-                              (merge-pathnames "tail-f.exe" *etc-path*)
-                              filename)))
+  (launch-application (format nil "~A ~A" *tail-f-command* filename)))
+
+;; CL の基本関数を調べる
+(require "hyperspec")
+(import '(hyperspec:hyperspec hyperspec:hyperspec-format))
+(define-key ed::*lisp-mode-map* '(#\C-c #\h) 'hyperspec)
+(define-key ed::*lisp-interaction-mode-map* '(#\C-c #\h) 'hyperspec)
+(setq hyperspec::*hyperspec-root*
+      ;; "http://www.lispworks.com/documentation/HyperSpec/"
+      "C:/home/lxuser/code/lisp/HyperSpec-7-0/HyperSpec/")
+
+;; (defun hyperspec-lookup (&optional use-lispworks)
+;;   (interactive "P")
+;;   (let ((hyperspec::*hyperspec-root*
+;;          (cond (use-lispworks "http://www.lispworks.com/documentation/HyperSpec/")
+;;                (t hyperspec::*hyperspec-root*))))
+;;     (hyperspec:hyperspec (completing-read
+;;                           "Look up symbol in Common Lisp HyperSpec: "
+;;                           hyperspec::*hyperspec-symbols*
+;;                           :default (hyperspec::get-symbol-at-point)
+;;                           :history hyperspec::*hyperspec-history*
+;;                           :must-match t))))
+;; (define-key ed::*lisp-mode-map* '(#\C-c #\h) 'hyperspec-lookup)
+;; (define-key ed::*lisp-interaction-mode-map* '(#\C-c #\h) 'hyperspec-lookup)
+
+;; http://calypso.tux.org/pipermail/xemacs-beta/2009-January/015729.html
+(defun check-parens ()
+  "バッファの括弧の釣り合いを調べる."
+  (interactive)
+  (handler-case
+      (let ((home (point)))
+        (goto-char (point-min))
+        (while (forward-list))
+        (goto-char home)
+        (message "だいたいあってる")
+        t)
+    (simple-error (c)
+      (message! "このへん間違ってるかも")
+      nil)))
+;; (compile 'check-parens)
 
 ;;; util.l ends here

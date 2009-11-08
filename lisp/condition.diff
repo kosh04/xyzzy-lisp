@@ -1,0 +1,13 @@
+--- condition.l.org	Thu May 02 10:26:14 2002
++++ condition.l	Sun Nov 08 06:09:12 2009
+@@ -237,8 +237,9 @@
+ 	     (let ((,def (*make-structure-definition
+ 			  ',name nil (get ',parent-type 'structure-definition)
+ 			  nil nil nil ',slot-desc
+-			  ,(if (or (consp report)
++			  ,(if (and (or (consp report)
+ 				   (symbolp report))
++				    (not (not report)))
+ 			       `#',report
+ 			     report)
+ 			  ,important)))
