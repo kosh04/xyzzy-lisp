@@ -6,12 +6,15 @@
 ;;; Carnegie Mellon University, and has been placed in the public domain.
 ;;;
 
-;;; Source: cmucl/src/code/defmacro.lisp
+;;; This file is NOT part of xyzzy.
 
-#+xyzzy
 (provide "dbind")
 
 (in-package :lisp)
+
+(defmacro the (type form)
+  (declare (ignore type))
+  form)
 
 
 ;;;; $PATH: cmucl/src/code/package.lisp

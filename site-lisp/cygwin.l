@@ -162,7 +162,7 @@
 
 ;; FIXME: 色付けは未実装
 ;; 制御文字を取り除いてテキスト表示するのみ
-;; 取り除くべき制御文字に「改行文字」も含まれている気がする。
+;; 取り除くべき制御文字に「改行文字」も含まれている気がする
 ;; http://www.isthe.com/chongo/tech/comp/ansi_escapes.html
 (defun manpage-fontify-buffer ()
   (interactive)
@@ -291,8 +291,9 @@
                                               )))
                        (mapcar #'cygpath *manpath*))
                :test #'string-equal))
+	(save-manual-cache *manual-cache-filename*)
         (unless nomsg (message "Making manul list..done"))
-        (save-manual-cache *manual-cache-filename*)))
+	))
   *manual-list*)
 
 ;; $CYGWIN/etc/profile

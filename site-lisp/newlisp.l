@@ -60,6 +60,22 @@
 (defvar *newlisp-process-encoding* *encoding-utf8n*)
 (defvar *newlisp-output-stream* nil)
 (defvar *newlisp-context* "MAIN")
+(defvar *newlisp-load-init-p* t)
+
+#|(defun newlisp-process (&key (if-does-not-exist :error))
+  (or (and (processp *newlisp-process*)
+           (eq :run (process-status *newlisp-process*))
+           *newlisp-process*)
+      (let ((*default-process-encoding* *newlisp-process-encoding*))
+        (make-process "newlisp.exe -L /tmp/nl-daemon.log -c -p 4711"
+                      :output (get-buffer-create *newlisp-process-buffer-name*))
+        (setq *newlisp-process*
+              (open-network-stream (selected-buffer) "localhost" 4711))
+        (set-process-filter *newlisp-process*
+                            (lambda (proc str)
+                              (message "~A" str)))
+        ;; (set-process-sentinel proc 'newlisp-sentinel)
+        *newlisp-process*)))|#
 
 (defun newlisp-process (&key (if-does-not-exist :error))
   (or *newlisp-process*
@@ -71,10 +87,11 @@
   (setq *newlisp-process-buffer* (get-buffer-create *newlisp-process-buffer-name*)
         *newlisp-output-stream* (make-buffer-stream *newlisp-process-buffer*))
   ;; options: -C force prompts
-  (let ((proc (make-process (format nil "~A -C -w \"~A\""
+  (let ((proc (make-process (format nil "~A ~A -C -w \"~A\""
                                     (if (file-exist-p *newlisp-exe*)
                                         (get-short-path-name *newlisp-exe*)
                                         *newlisp-exe*)
+                                    (if *newlisp-load-init-p* "" "-n")
                                     (default-directory))
                             :output *newlisp-process-buffer*
                             :incode *newlisp-process-encoding*
@@ -96,6 +113,7 @@
                                (t match)))
           str (string-left-trim '(#\LFD) str))
     (funcall *newlisp-output-function* str *newlisp-context*)
+    (refresh-screen)
     (setq *newlisp-context* next-context)))
 
 (defun newlisp-sentinel (proc)
@@ -110,20 +128,24 @@
   (refresh-screen)
   (message "newlisp exit with code ~D" (process-exit-code proc)))
 
-(defparameter *newlisp-output-function*
+(defvar *newlisp-output-function*
   #'(lambda (str context)
       (when (string-match "^ERR:" str) (ding))
-      ;; *prefix-args* をここで参照するのがありなのか分からない
+      ;; FIXME: *prefix-args* をここで参照するのがありなのか分からない
       (cond (*prefix-args*
              (if (find #\LFD str) (newline) (indent-for-comment))
              (insert str))
             ((find #\LFD str)
              (popup-string str (point)))
-            (t
+            (:else
              (minibuffer-message "~A> ~A"
                                  (if (string= context "MAIN") "" context)
-                                 str)))
-      (refresh-screen)))
+                                 str)))))
+
+(defun set-newlisp-output-function (fn)
+  "newlispプロセスの出力関数を指定する.
+関数の引数は (出力 現在のコンテキスト)"
+  (setq *newlisp-output-function* fn))
 
 (defun newlisp-eval (str-sexp &optional stream)
   (interactive "snewLISP eval: ")
@@ -155,6 +177,11 @@
     (unwind-protect
         (newlisp-eval-region (region-beginning) (region-end))
       (set-mark t))))
+
+(export 'newlisp-load-file)
+(defun newlisp-load-file (file)
+  (interactive "fnewLISP load: ")
+  (newlisp-eval (format nil "(load {~A})" file)))
 
 (defun newlisp-kill-process ()
   (interactive)
@@ -262,11 +289,14 @@
     ;; (define-key keymap #\TAB 'lisp-indent-line)
     ;; (define-key keymap #\C-j 'newlisp-eval-last-sexp)
     ;; (define-key keymap #\F5 'newlisp-eval-buffer)
+    (define-key keymap #\M-: 'newlisp-eval)
     (define-key keymap '(#\C-x #\C-e) 'newlisp-eval-last-sexp)
     (define-key keymap '(#\C-c #\C-r) 'newlisp-eval-region)
     (define-key keymap #\M-C-x 'newlisp-eval-defun)
     (define-key keymap '(#\C-c #\TAB) 'newlisp-completion) ; C-c C-i
+    (define-key keymap #\M-C-i 'newlisp-completion) ; M-TAB
     (define-key keymap '(#\C-c #\C-z) 'newlisp-show-log-buffer)
+    (define-key keymap '(#\C-c #\C-l) 'newlisp-load-file)
     keymap))
 
 (defun newlisp-mode ()
@@ -410,19 +440,27 @@
 (defindent for 1)
 (defindent lambda-macro defmacro)
 (defindent define-macro lambda)
-(defindent until 1)
-(defindent letn let*)
+(defindent until 1)             ; (until exp body)
+(defindent do-until 1)
+(defindent letn let*)           ; (letn (vars) body)
 ; (defindent sgn 1)
-(defindent letrec let)          ; scheme?
+(defindent letrec let)          ; ? scheme
 (defindent letrec* let*)
-(defindent doargs 1)
-(defindent do-while while)
+(defindent doargs 1)            ; (doargs (sym [break]) body)
+(defindent do-while while)      ; (do-while body)
+(defindent dotree 1)            ; (dotree (sym context [bool]) body)
 
 
-(in-package "winapi")
+(export '(newlisp-eval-string))
 
-;; 使い方が分かりません
-(c:*define-dll-entry LPSTR newlispEvalStr (LPSTR)
-  ed:*newlisp-dll* "newlispEvalStr")
+(c:*define-dll-entry winapi::LPSTR newlispEvalStr (winapi::LPSTR)
+  *newlisp-dll*)
+
+(defun newlisp-eval-string (str)
+  (let ((addr (newlispEvalStr (si:make-string-chunk str)))
+        (size 1024))            ; 適当
+    (if (plusp addr)
+        (string-right-trim '(#\LFD)
+          (si:unpack-string (si:make-chunk nil size nil addr) 0)))))
 
 ;;; newlisp.l ends here

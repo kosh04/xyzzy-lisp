@@ -3,8 +3,11 @@
 * cl.l - xyzzyにないCommonLisp関数群
 * corman_search.l - CommonLispのみで文字列検索
   ただし正規表現が使えるed:string-matchの方が明らかに便利
-* dbind.l - destructuring-bind が使えるように
+* dbind.l - destructuring-bindが使えるように
   lisp/condition.l に若干修正が必要 (see lisp/condition.diff)
+  g000001さん移植のdestructuring-bind.lとほぼ同じ機能です
+  http://coderepos.org/share/browser/lang/xyzzy/destructuring/site-lisp/destructuring-bind.l
+  違うのはマクロ展開時のS式くらい
 
 ## Emacsから移植したもの
 
@@ -15,12 +18,12 @@
 * cygwin.l - 今のところmanコマンドが使えるくらい
 * newlisp.l - newLISP編集用メジャーモード
 * redef.l - ~/lisp/以下の関数の再定義
-* .xyzzy.l - その他小物
 * libmagic.l - ファイル判別ライブラリ(file)
   必要なファイル
-  - etc/magic.mgc
+  - etc/magic.mgc (or magic)
   - etc/magic1.dll
   - etc/regex2.dll
+* .xyzzy.l - その他小物
 
 ※GitHubのWebページの指定文字コード(utf8)と各ファイルの文字コード(sjis)が異
 なるため、ブラウザでの表示が化けて見えるのは仕様です。

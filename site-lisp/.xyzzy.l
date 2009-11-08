@@ -894,4 +894,12 @@ On nonblank line, delete any immediately following blank lines."
       nil)))
 ;; (compile 'check-parens)
 
+(defun _just-one-space ()
+  (interactive "*")
+  ;; ‰üs‚à‚Ü‚Æ‚ß‚Äíœ‚·‚é
+  (delete-region (progn (skip-chars-backward " \t\n") (point))
+		 (progn (skip-chars-forward " \t\n") (point)))
+  (insert #\SPC))
+(setf (symbol-function 'just-one-space) #'_just-one-space)
+
 ;;; util.l ends here
