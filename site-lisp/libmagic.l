@@ -1,24 +1,34 @@
 ;;; -*- Mode: Lisp; Package: USER; Encoding: Shift_JIS -*-
-
-;;; libmagic.l --- マジックナンバー識別ライブラリのラッパー
-
-;; This file is NOT part of xyzzy.
-
-;; Copyright (C) 2009 KOBAYASHI Shigeru
+;;;
+;;; libmagic.l --- ファイルタイプ識別ライブラリ
+;;;
+;;; Copyright (C) 2009 KOBAYASHI Shigeru
+;;;
+;;; This file is NOT part of xyzzy.
 
 #|
+これは何？
+==========
+
+バイト列からファイルの種類を識別するためのライブラリです。
+file(1) コマンドの magic1.dll を利用しています。
+
+
 インストール
 ============
 
 1. このファイルを xyzzy/site-lisp 以下に置く。
 
+1a. 必要ならばバイトコンパイルする。
+
 2. GnuWin32 <http://gnuwin32.sourceforge.net/> から
-   File, Regex のバイナリを持ってきて、ライブラリファイル magic1.dll,
+   File, Regex のバイナリを持ってきて、共有ライブラリ magic1.dll,
    regex2.dll と データベースファイル magic.mgc を xyzzy/etc 以下に置く。
 
 3. .xyzzy に次の一行を追加する。
 
    (require "libmagic")
+
 
 使い方
 ======
@@ -33,14 +43,33 @@
 ;=> "ASCII text, with no line terminators"
 
 (let ((*magic-flags* (+ MAGIC_MIME_TYPE MAGIC_MIME_ENCODING))
+      ;; 別のmagicデータベースを使ってみる
+      ;; (データベースのバージョンが異なる可能性あり)
       (*magic-database-file* "C:/cygwin/usr/share/file/magic.mime"))
   (magic-buffer "#!/bin/sh\necho -n 'Hello, World!'\n"))
 ;=> "text/x-shellscript; charset=us-ascii"
+
+
+応用例
+======
+
+(defun get-file-type (pathname)
+  "ファイルの種類をステータスバーに表示する."
+  (interactive "fFile type" :default0 (get-buffer-file-name))
+  (message "~A" (magic-file pathname)))
+
+;; ファイラから利用する
+(defun filer-get-file-type ()
+  (get-file-type (ed::filer-fetch-file nil nil)))
+(define-key filer-keymap #\? 'filer-get-file-type)
+
 
 Known bugs
 ==========
 
 * MAGIC_COMPRESS を指定して使うと xyzzy ごと落ちる可能性あり
+  This compressed file format not implemented. # 落ちる直前のエラー
+  今のところ、拡張子 "zip" で確認
 * magic_load にディレクトリまたは空文字列を指定すると無限ループ
 * 存在しないファイルを magic_file に渡すと、"cannot open ~" が
   返ってくる (magic_error にエラーメッセージがセットされない)
@@ -143,6 +172,8 @@ int magic_load(magic_t cookie, const char *filename);
   (check-type addr (integer #x0300000 *))
   (si:unpack-string (si:make-chunk nil 1024 nil addr) 0 nil t))
 
+;; (c:*define-dll-entry c:char* strerror (c:int) "msvcrt.dll")
+;; (c:*define-dll-entry c:void perror (c:char*) "msvcrt.dll")
 
 ;;; User Interface
 
@@ -163,7 +194,7 @@ int magic_load(magic_t cookie, const char *filename);
                   (file-exist-p *magic-database-file*)
                   (not (file-directory-p *magic-database-file*)))
        (error "could not find any magic files!"))
-     (let ((,ms (magic_open (logior ,flags MAGIC_NONE))))
+     (let ((,ms (magic_open (logior (or ,flags 0) MAGIC_NONE))))
        (if (= ,ms NULL)
            ;; FIXME: errno の取得方法は？
            (error "magic_open: error occurred"))

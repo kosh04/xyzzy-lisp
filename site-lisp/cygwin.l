@@ -1,8 +1,21 @@
-;;; -*- Mode: Lisp; Package: USER; Encoding: Shift_JIS -*-
+;;; -*- Mode: Lisp; Package: EDITOR; Encoding: Shift_JIS -*-
+;;;
+;;; cygwin.l --- xyzzyからcygwinのコマンドを扱う (作りかけ)
+;;;
+;;; This file is NOT part of xyzzy.
 
-;;; cygwin.l --- xyzzyからcygwinのコマンドを扱うもの (かなり作りかけ)
+#|
+■これは何？
+xyzzyからcygwinのコマンド群を扱うのに便利そうな関数をまとめたものです。
 
-;; This file is NOT part of xyzzy.
+...ただし今のところmanコマンドが利用できるくらいです。
+
+■使い方
+(require "cygwin")
+;; 日本語マニュアルを使っている場合
+(setq ed::*cygwin-environment-alist* '(("LANG" . "ja_JP.SJIS")))
+(pushnew "/usr/local/share/man" *manpath* :test #'equal)
+|#
 
 (provide "cygwin")
 
@@ -15,7 +28,7 @@
   "cygwinのルートディレクトリ")
 
 (defvar *cygwin-environment-alist* '(("LANG" . "C"))
-  "cygwinの環境変数")
+  "cygwinを起動する際に用いる環境変数")
 
 ;;; shellの切り替え
 ;;; /etc/profile の cd "${HOME}" 周辺をコメントアウトする
@@ -33,8 +46,7 @@
   (set-buffer (get-buffer-create "*Bash*"))
   (let ((*eshell* "bash -i")
         (*cygwin-environment-alist*
-         `(("PS1" . "[\\u@\\h:\\w]\\n\\$ ")
-           ,@ed::*cygwin-environment-alist*))
+         `(("PS1" . "[\\u@\\h:\\w]\\n\\$ ") ,@*cygwin-environment-alist*))
         (proc (buffer-process (selected-buffer))))
     (and proc (eq (process-status proc) :run)
          (return-from shell-on-cygwin t))
@@ -55,12 +67,18 @@
 (pushnew '(less-mode . "Less") *minor-mode-alist* :key #'car)
 (defvar-local less-mode nil)
 
+(defun less-message ()
+  (message "HELP -- Press RETURN for more, or q when done"))
+
 (defun less-mode (&optional (arg nil sv))
   (interactive "p")
-  (ed::toggle-mode 'less-mode arg sv)
-  (if less-mode
-      (set-minor-mode-map *less-mode-map*)
-      (unset-minor-mode-map *less-mode-map*))
+  (toggle-mode 'less-mode arg sv)
+  (cond (less-mode
+         ;(add-hook '*post-command-hook* 'less-message)
+	 (set-minor-mode-map *less-mode-map*))
+	(t
+         ;(delete-hook '*post-command-hook* 'less-message)
+	 (unset-minor-mode-map *less-mode-map*)))
   (toggle-read-only less-mode)
   (update-mode-line t))
 
@@ -72,16 +90,16 @@
                               (car x)))
                 (command (cdr x)))
             (mapc (lambda (key)
-                    (define-key *less-mode-map* key command))
+		    (define-key *less-mode-map* key command))
                   keys)))
         ;; キーマップの詳細はlessのヘルプ参照
         '(
-          ;; (("h" "H") . undefined)        ; help
+	  (("h" "H") . undefined) ; help
           (("q" ":q" "Q" "ZZ") . less-quit)
           (("e" "\x05" "j" "\x0e" "\x0d") . less-scroll-down) ; ^E ^N ^M
-          (("y" "\x19" "k" "\x0b" "\x10") . less-scroll-up) ; ^Y ^K ^P
-          (("f" "\x06" "\x16" " ") . next-page) ; ^F ^V
-          (("b" "\x02" "\x8076") . previous-page) ; ^B ESC-v
+          (("y" "\x19" "k" "\x0b" "\x10") . less-scroll-up)   ; ^Y ^K ^P
+          (("f" "\x06" "\x16" " ") . next-page)               ; ^F ^V
+          (("b" "\x02" "\x8076") . previous-page)             ; ^B ESC-v
           (("z") . next-page)
           (("w") . previous-page)
           ;; (("\X8020") . less-next-page?) ; ESC-SPACE
@@ -93,8 +111,8 @@
                             (interactive)
                             (let ((*page-scroll-half-window* t))
                               (previous-page)))) ; ^U
-          (("\X8028" "\xff06") . scroll-right) ; ESC-( RightArrow
-          (("\X8028" "\Xff04") . scroll-left) ; ESC-) LeftArrow
+          (("\X8028" "\xff06") . scroll-right)   ; ESC-( RightArrow
+          (("\X8028" "\Xff04") . scroll-left)    ; ESC-) LeftArrow
           ;; (("F") . tail-f?)
           (("r" "\x12" "\x0c") . (lambda () (interactive) (refresh-screen))) ; ^R ^L
           ;; (("R") . refresh-screen-noinput?)
@@ -105,7 +123,7 @@
           ;; (("ESC-n") . undefined)
           ;; (("ESC-N") . undefined)
           ;; (("ESC-u"). undefined)
-          (("g" "<" "\X803c") . 'beginning-of-buffer) ; ESC-<
+          (("g" "<" "\X803c") . beginning-of-buffer) ; ESC-<
           (("G" ">" "\X803e") . end-of-buffer) ; ESC->
           (("p" "%") . less-goto-page)
           (("{" "(" "[" "}" ")" "]") . goto-matched-parenthesis)
@@ -137,7 +155,7 @@
   (less-mode nil))
 
 
-;;; UN*X のマニュアルを見る
+;;; マニュアルを参照する
 
 ;; 参考: $EMACS/lisp/man.el
 ;; "LANG=C man man | [col -b | colcrt]" を使う方法もある
@@ -160,9 +178,15 @@
 (export '(*manpath*
           *manual-cache-filename*))
 
+(defvar *manpath* '("/usr/local/man" "/usr/share/man" "/usr/man")
+  "環境変数 $MANPATH と大体同じ.")
+(defvar *manual-cache-filename* "~/usr/.man-cache.l"
+  "manを参照するためのトピックリストを保存するファイル名.")
+(defvar *manual-list* nil)
+
 ;; FIXME: 色付けは未実装
 ;; 制御文字を取り除いてテキスト表示するのみ
-;; 取り除くべき制御文字に「改行文字」も含まれている気がする。
+;; 取り除くべき制御文字に「改行文字」も含まれている気がする
 ;; http://www.isthe.com/chongo/tech/comp/ansi_escapes.html
 (defun manpage-fontify-buffer ()
   (interactive)
@@ -175,10 +199,11 @@
     (trim-buffer "\b.")         ; 太字 :bold
     ))
 
-;; (use #'make-process)
+;; (use 'make-process)
 ;; 日本語版マニュアル配布元: JM Project - http://www.linux.or.jp/JM/
 ;; 公式配布のマニュアルの文字コードはeuc-jp:lfのみ提供だったはず
 (defun man (str &optional section)
+  "cygwin のマニュアルを参照します."
   (interactive (list (read-manual-entry "Manual entry: ") *prefix-value*))
   (if (string= str "")
       (error "What manual page do you want?"))
@@ -205,10 +230,11 @@
                     (save-excursion
                       (set-buffer tmpbuf)
                       (goto-char (point-min))
-                      ;; No manual entry for STRING
-                      ;; No entry for STRING in section N of the manual
-                      (let ((msg (and (scan-buffer (compile-regexp
-                                                    "^No \\(manual \\)?entry for .*$"))
+                      ;; "No manual entry for STRING"
+                      ;; "No entry for STRING in section N of the manual"
+                      (let ((msg (and (scan-buffer
+                                       (compile-regexp
+                                        "^No \\(manual \\)?entry for .*$"))
                                       (match-string 0))))
                         (progn (ding) (message "~A" msg))
                         (error "~A" msg))))
@@ -217,7 +243,7 @@
                       (insert-buffer tmpbuf)
                       (manpage-fontify-buffer)
                       (toggle-read-only t)
-                      ;; (less-mode t)
+                      ; (less-mode t)
                       (message "~A man page formatted" str))))
            (progn
              (or (deleted-buffer-p tmpbuf)
@@ -226,10 +252,9 @@
 
 (setf (symbol-function 'manual-entry) #'man)
 
-;; (use #'call-process)
+;; (use 'call-process)
 #+NIL
 (defun man-page (str &optional section)
-  "cygwin のマニュアルを参照します."
   (interactive (list (read-manual-entry "Manual entry: ") *prefix-value*))
   (if section
       (setq str (format nil "~D ~A" section str)))
@@ -269,31 +294,23 @@
                  (t pathname)))
     (:windows (map-slash-to-backslash (namestring pathname)))))
 
-(defvar *manpath* '("/usr/local/man" "/usr/share/man" "/usr/man")
-  "環境変数 $MANPATH と大体同じ.")
-(defvar *manual-cache-filename* "~/usr/.man-cache.l"
-  "manを参照するためのトピックリストを保存するファイル名.")
-(defvar *manual-list* nil)
-
-;; マニュアルファイルを更新する場合は (ed::manual-list t)
 (defun manual-list (&optional force-update nomsg)
-  (if (or (null *manual-list*) force-update)
-      (long-operation
-        (unless nomsg (message "Making manual list..."))
-        (setq *manual-list*
-              (delete-duplicates
-               (mapcan #'(lambda (x)
-                           (mapcar #'(lambda (path)
-                                       ;; filename.ext1.ext2 => filename
-                                       (pathname-name (pathname-name path)))
-                                   (directory x :recursive t :file-only t
-                                              ;; :wild "*.*"
-                                              )))
-                       (mapcar #'cygpath *manpath*))
-               :test #'string-equal))
-        (unless nomsg (message "Making manul list..done"))
-        (save-manual-cache *manual-cache-filename*)))
+  (when (or (null *manual-list*) force-update)
+    (long-operation
+      (unless nomsg (message "Making manual list..."))
+      (dolist (dir (mapcar #'cygpath *manpath*))
+        (dolist (file (directory dir :recursive t :file-only t))
+          ;; filename.ext1.ext2 => filename
+          (pushnew (pathname-name (pathname-name file))
+                   *manual-list* :test #'equal)))
+      (save-manual-cache *manual-cache-filename*)
+      (unless nomsg (message "Making manul list..done"))))
   *manual-list*)
+
+(export '(update-manual-list))
+(defun update-manual-list ()
+  (interactive)
+  (manual-list t))
 
 ;; $CYGWIN/etc/profile
 ;; MANPATH=/usr/local/man:/usr/share/man:/usr/man:$MANPATH
@@ -326,7 +343,7 @@
             (and #1=*manual-cache-filename*
                  (file-exist-p #1#)
                  (setq filename #1#)))
-    (load filename)))
+    (load filename :verbose nil)))
 
 (add-hook '*post-startup-hook* 'restore-manual-cache)
 

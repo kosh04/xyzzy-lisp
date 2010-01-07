@@ -1,8 +1,8 @@
 ;;; -*- Mode: Lisp; Encoding: Shift_JIS -*-
-
+;;;
 ;;; redef.l --- xyzzy 組み込み関数を再定義したもの
-
-;; This file is NOT part of xyzzy.
+;;;
+;;; This file is NOT part of xyzzy.
 
 (provide "redef")
 
@@ -32,8 +32,6 @@
 ;;; builtin.l
 #+NIL
 (defun listen (&optional input-stream)
-  ;; 使わない方がいいと思う。
-  ;; こんなやり方もあるよ、ということで
   #+case1
   (let ((ch (read-char-no-hang input-stream nil nil)))
     (prog1
@@ -41,6 +39,8 @@
       (and ch (unread-char ch input-stream))))
   #+case2
   (eq (peek-char nil input-stream nil :eof) :eof))
+
+(si::defun-builtin track-popup-menu (menu &optional any))
 
 ;;; buf-menu.l
 (defun buffer-menu ()
@@ -61,7 +61,7 @@
                                                    :case-fold t
                                                    :default default
                                                    :history history))))
-#|
+#+NIL
 (defun emacs-interactive-exist-buffer-name (prompt default &rest rest)
   (ed::emacs-read-buffer-name prompt (or default (selected-buffer))
                               #'(lambda (prompt &key default history)
@@ -71,14 +71,21 @@
                                                    ;; :must-match t ; exist
                                                    :default default
                                                    :history history))))
-|#
 
-;;; session.l
-(defun toggle-session-auto-save (&optional (arg nil sv))
-  (interactive "p")
-  (toggle-mode '*auto-save-session-file* arg sv)
-  ;; 表示があると分かりやすい
-  (message "Session auto save: ~:[OFF~;ON~]" ed::*auto-save-session-file*))
+;;; cmds.l
+(defun toggle-mode (var arg sv)
+  (set var (if sv
+	       (if (integerp arg)
+		   (not (minusp arg))
+		 arg)
+	     (null (symbol-value var))))
+  (let ((msg (get var 'message-documentation)))
+    (when msg
+      ;; 表示があると分かりやすい
+      (message "~A: ~:[OFF~;ON~]" msg (symbol-value var)))))
+
+(setf (get 'ed::*auto-save-session-file* 'message-documentation) "Session auto save")
+(setf (get 'si:*trace-on-error* 'message-documentation) "Trace on error")
 
 ;;; misc.l
 (defun toggle-trace-on-error (&optional (arg nil svar))
@@ -92,7 +99,6 @@
         (t
          (ignore-errors
           (kill-buffer (buffer-stream-buffer *error-output*)))))
-  (message "Trace on error: ~:[OFF~;ON~]" si:*trace-on-error*)
   t)
 
 ;; 単に好みの問題
@@ -151,29 +157,13 @@
       (filer-cancel))))         ; ついでに quit
 
 ;; ファイルのマークをバッファのリージョンのように扱ってみる
+#+NIL
 (defun filer-close-modal ()
   (cond ((filer-get-mark-files)
          ;; (ding)
          (filer-clear-all-marks))
         ((filer-modal-p) (filer-cancel))
         (t (quit))))
-
-#+NIL
-(defun open-filer ()
-  (interactive)
-  (multiple-value-bind (files result)
-      (let ((omode (get-ime-mode))
-            ;; ここで変数決めると外側の束縛が無意味になってしまう
-            (*filer-primary-directory*
-             (if (file-visited-p)
-                 (directory-namestring (get-buffer-file-name))
-                 (default-directory))))
-        (unwind-protect
-            (filer nil t nil t (not *filer-modal*))
-          (and *filer-modal* (toggle-ime omode))))
-    (when result
-      (filer-readin-1 files))))
-
 
 (defun filer-list-archive ()
   (let ((file (ed::filer-fetch-file t)))
@@ -209,27 +199,18 @@
                       (ed::filer-open-in-archive file (nth 3 f)))
                   (cdr (assoc 'list data)))))))))
 
-(defun filer-delete ()
-  (long-operation
-    (let ((marks (or (filer-get-mark-files)
-                     ;; マークがなければカーソル位置のファイルを削除対象にする
-                     (list (filer-get-current-file)))))
-      (when (and marks
-                 (if *filer-query-delete-precisely*
-                     (filer-query-delete marks)
-                     (yes-or-no-p "~A" (concat "選択されたファイルを削除しまっせ"
-                                               (and *filer-delete-mask*
-                                                    (filer-delete-mask-string *filer-delete-mask*
-                                                                              "\n削除マスク: "))))))
-        (filer-subscribe-to-reload (filer-get-directory) t)
-        (let ((if-access-denied (if *filer-delete-read-only-files*
-                                    :force :error))
-              (delete-non-empty-directory
-               *filer-delete-non-empty-directory*))
-          (declare (special if-access-denied
-                            delete-non-empty-directory))
-          (filer-do-delete marks))
-        (message "done.")))))
+(or (fboundp '%filer-get-mark-files)
+    (setf (symbol-function '%filer-get-mark-files) #'filer-get-mark-files))
+
+(defun filer-get-mark-files (&optional file-only-p secondary-window-p)
+  (or #1=(%filer-get-mark-files file-only-p secondary-window-p)
+      (prog2
+          ;; マークがなければカーソル位置のファイルを対象にしてみる
+          ;; [共通設定]->[ファイラ]->[なんかする前に必ず確認する]
+          ;; のチェックを入れておかないと色々危険かも...
+          (filer-mark file-only-p secondary-window-p)
+          #1#
+        (filer-clear-all-marks secondary-window-p))))
 
 (defun filer-rename ()
   (let ((old (filer-get-mark-files))
@@ -261,9 +242,9 @@
                 (rename-file old new)
                 ;; ファイルに関連付けられているバッファもリネーム
                 (let ((oldbuf (get-file-buffer old)))
-                  (when (and oldbuf (not (file-directory-p new)) )
-                    (set-buffer-file-name new oldbuf)
-                    (rename-buffer (file-namestring new) oldbuf)))
+                  (when (and oldbuf (not (file-directory-p new)))
+		    (set-buffer-file-name new oldbuf)
+		     (rename-buffer (file-namestring new) oldbuf)))
                 (filer-subscribe-to-reload (directory-namestring new))))
 	  files)
     (when goto-new
@@ -355,12 +336,9 @@
                         sym 'lisp::variable-documentation t doc-path)))
               (when doc
                 (format t "  Variable: ~A~%" doc)))))
-        ;; もうちょい見易く
+        ;; もうちょっと見易く
         (toggle-read-only t)
-        (funcall (some #'(lambda (mode)
-                           (and (fboundp mode) mode))
-                       '(user::info-modoki-mode
-                         lisp-mode)))
+        (lisp-mode)
         (message "Building apropos list...done")))))
 
 ;;; kbdmacro.l
@@ -388,7 +366,7 @@
                             *kbd-macro-repeat-char*)
         (let ((ch (read-char)))
           ;; ループ内で判定しなくていい気はする
-          ;; S式を変数に閉じ込めて、funcall?
+          ;; S式を変数に閉じ込めてfuncall?
           (if (char= ch *kbd-macro-repeat-char*)
               (go #1#)
               (unread-char ch)))))))
@@ -460,8 +438,7 @@
 
 ;;; tail-f.l
 
-;; tail-f.lはautoloadで読み込まれるので、明示的にファイルを読み込んで
-;; から関数を上書きする必要がある。
+;; tail-f.lはautoloadで読み込まれるので上書きする必要あり
 (require "tail-f")
 
 ;; 文字コード指定の追加
@@ -506,6 +483,19 @@
 
 (in-package "lisp")
 
+(defun load-library (filename &rest rest)
+  (ed:interactive (list (ed:completing-read
+                         "Load library: "
+                         (mapcan #'(lambda (path)
+                                     (directory path
+                                                :wild "*.l"
+                                                :recursive t))
+                                 *load-path*))))
+  ;; バイトコンパイルされたものを優先してロード
+  (if (file-exist-p #1=(compile-file-pathname filename))
+      (load #1#)
+    (apply #'si:*load-library filename rest)))
+
 ;;; package.l
 ;; 引数NAMEはstring designator
 (defmacro in-package (name)
@@ -526,12 +516,16 @@
       (unless (apply #'member (if key (funcall key l) l) list2 rest)
         (push l x)))))
 
-;; 組み込みのpathname-directoryがだめだめだった気がするので
+;; 組み込みのpathname-directoryがだめだめだった気がする
+;; (pathname-directory "C:/home/") => nil
+#+NIL
 (defun pathname-directory (pathname)
-  (let ((dir (ed::split-string (directory-namestring pathname) "/")))
+  (let ((dir (ed::split-string (if (file-directory-p pathname)
+                                   pathname
+                                   (directory-namestring pathname))
+                               "/")))
     (if (find #\: (car dir))    ; remove drive-letter
         (cdr dir)
         dir)))
-
 
 ;;; redef.l ends here
