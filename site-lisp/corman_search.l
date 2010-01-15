@@ -7,7 +7,9 @@
 
 (in-package :lisp)
 
-#+xyzzy (shadow '(search) (find-package "editor"))
+#+xyzzy
+(shadow '(search) (find-package "editor"))
+
 (export '(search))
 
 ;;; ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

@@ -5,12 +5,9 @@
 ;;; This file is NOT part of xyzzy.
 
 #|
-■これは何？
-xyzzyからcygwinのコマンド群を扱うのに便利そうな関数をまとめたものです。
+使い方
+======
 
-...ただし今のところmanコマンドが利用できるくらいです。
-
-■使い方
 (require "cygwin")
 ;; 日本語マニュアルを使っている場合
 (setq ed::*cygwin-environment-alist* '(("LANG" . "ja_JP.SJIS")))
@@ -22,7 +19,7 @@ xyzzyからcygwinのコマンド群を扱うのに便利そうな関数をまとめたものです。
 (in-package "editor")
 
 (export '(*cygwin-root*))
-(export '(run-cygwin-console shell-on-cygwin cygpath))
+(export '(run-cygwin-console shell-on-cygwin))
 
 (defvar *cygwin-root* "C:/cygwin/"
   "cygwinのルートディレクトリ")
@@ -38,7 +35,8 @@ xyzzyからcygwinのコマンド群を扱うのに便利そうな関数をまとめたものです。
   (interactive "P")
   (if login
       (launch-application "cmd /c env CHERE_INVOKING=yes bash --login -i")
-      (launch-application (cygpath "/bin/bash -i"))))
+      (launch-application (format nil "~A -i"
+                                  (cygpath "/bin/bash" :type :windows)))))
 
 (defun shell-on-cygwin ()
   "xyzzy のバッファから bash を操作します。"
@@ -59,6 +57,41 @@ xyzzyからcygwinのコマンド群を扱うのに便利そうな関数をまとめたものです。
                   :outcode *encoding-euc-jp*
                   :eol-code *eol-guess*)
     ))
+
+;; cygwin-mount.l が参考になりそう
+;; http://miyamuko.s56.xrea.com/xyzzy/cygwin-mount/
+
+;; http://cygwin.com/cygwin-ug-net/using-utils.html#cygpath
+;; -d, --dos	print DOS (short) form of NAMEs (C:\PROGRA~1\)
+;; -m, --mixed	like :windows, but with regular slashes (C:/WINNT)
+;; -u, --unix	(default) print Unix form of NAMEs (/cygdrive/c/winnt)
+;; -w, --windows print Windows form of NAMEs (C:\WINNT)
+
+;; FIXME: 動けば良い程度の出来
+;(export '(cygpath))
+(defun cygpath (pathname &key (type :unix))
+  "Convert Unix and Windows format paths, or output system path information."
+  (labels ((u2w (path)
+             (cond ((string-match "^/cygdrive/[a-zA-Z]\\(.*\\)" path)
+                    (namestring (match-string 1)))
+                   ((string-match "^/" path)
+                    (merge-pathnames (string-left-trim "/" path) *cygwin-root*))
+                   (t
+                    (namestring pathname)))))
+    (case type
+      (:dos (get-short-path-name (u2w pathname)))
+      (:mixed (map-backslash-to-slash (u2w pathname)))
+      (:unix (map-backslash-to-slash
+              (if (file-name-absolute-p pathname)
+                  (format nil "/cygdrive/~A/~A"
+                          (string-downcase (pathname-device pathname))
+                          (substring pathname 3))
+                pathname)))
+      (:windows (map-slash-to-backslash (u2w pathname)))
+      (t (error "不正な変換指定です: ~S"  type)))))
+
+(defun file-name-absolute-p (filename)
+  (if (string-match "^[a-zA-Z]:" filename) t nil))
 
 
 ;;; へなちょこ less モード
@@ -210,7 +243,9 @@ xyzzyからcygwinのコマンド群を扱うのに便利そうな関数をまとめたものです。
   (if section (setq str (format nil "~D ~A" section str)))
   (message "Invoking man ~A in the background" str)
   (let* ((tmpbuf (create-new-buffer " *Man temp*"))
-         (proc (make-process (format nil "man ~A" str)
+         (proc (make-process (format nil "\"~A\" ~A"
+                                     (cygpath "/bin/man" :type :windows)
+                                     str)
                              :output tmpbuf
                              :environ *cygwin-environment-alist*)))
     (set-process-incode proc *encoding-euc-jp*)
@@ -225,7 +260,7 @@ xyzzyからcygwinのコマンド群を扱うのに便利そうな関数をまとめたものです。
      ;; エラーキャッチはできるんだが、音と表示が出ない
      #'(lambda (process)
          (unwind-protect
-             ;; $ man -k STRING も返り値１になるようだが使わないので無視する
+             ;; `man -k STRING` も返り値１になるようだが使わないので無視する
              (cond ((/= 0 (process-exit-code process))
                     (save-excursion
                       (set-buffer tmpbuf)
@@ -265,7 +300,9 @@ xyzzyからcygwinのコマンド群を扱うのに便利そうな関数をまとめたものです。
     (let ((tempfile (make-temp-file-name "man")))
       (unwind-protect
           (long-operation
-            (call-process (format nil "~A ~A" (cygpath "/bin/man.exe") str)
+            (call-process (format nil "~A ~A"
+                                  (cygpath "/bin/man.exe" :type :windows)
+                                  str)
                           :environ *cygwin-environment-alist*
                           :output tempfile :show :minimize :wait t)
             (with-open-file (s tempfile :direction :input)
@@ -282,23 +319,13 @@ xyzzyからcygwinのコマンド群を扱うのに便利そうな関数をまとめたものです。
               (toggle-read-only t)))
         (delete-file tempfile)))))
 
-;; cygwin-mount.l が参考になりそう
-;; http://cygwin.com/cygwin-ug-net/using-utils.html#cygpath
-(defun cygpath (pathname &key (type :unix))
-  "Convert Unix and Windows format paths, or output system path information."
-  (case type
-    (:dos (get-short-path-name pathname))
-    (:mixed (map-backslash-to-slash (namestring pathname)))
-    (:unix (cond ((string-match "^/" pathname)
-                  (merge-pathnames (string-left-trim "/" pathname) *cygwin-root*))
-                 (t pathname)))
-    (:windows (map-slash-to-backslash (namestring pathname)))))
-
 (defun manual-list (&optional force-update nomsg)
   (when (or (null *manual-list*) force-update)
     (long-operation
       (unless nomsg (message "Making manual list..."))
-      (dolist (dir (mapcar #'cygpath *manpath*))
+      (dolist (dir (mapcar #'(lambda (path)
+                               (cygpath path :type :windows))
+                           *manpath*))
         (dolist (file (directory dir :recursive t :file-only t))
           ;; filename.ext1.ext2 => filename
           (pushnew (pathname-name (pathname-name file))
@@ -346,5 +373,16 @@ xyzzyからcygwinのコマンド群を扱うのに便利そうな関数をまとめたものです。
     (load filename :verbose nil)))
 
 (add-hook '*post-startup-hook* 'restore-manual-cache)
+
+(export '(manual-file))
+(defun manual-file (file)
+  "マニュアルファイルを直接指定してmanコマンドを実行する."
+  (interactive
+      (list (read-exist-file-name "Manual file: "
+                                  :default (get-buffer-file-name)
+                                  :title "マニュアルファイル")))
+  ;; man の引き数 name にスラッシュ (/) がある場合は、
+  ;; man はファイルの指定であると解釈して、検索を行わない。
+  (man (cygpath file :type :unix)))
 
 ;;; cygwin.l ends here.
