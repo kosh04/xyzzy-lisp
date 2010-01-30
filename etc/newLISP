@@ -1,5 +1,5 @@
 ;; keyword file for xyzzy -*- mode:newlisp -*-
-;; newLISP v.10.1.1 on Win32 IPv4 UTF-8
+;; newLISP v.10.1.7 on Win32
 !
 !=
 $
@@ -112,7 +112,6 @@ ends-with
 env
 erf
 error-event
-estack
 eval
 eval-string
 exec
@@ -134,6 +133,7 @@ float
 float?
 floor
 flt
+fn
 for
 for-all
 format
@@ -163,6 +163,8 @@ intersect
 invert
 irr
 join
+lambda
+lambda-macro
 lambda?
 last
 last-error
@@ -256,6 +258,7 @@ read-file
 read-key
 read-line
 read-utf8
+reader-event
 real-path
 ref
 ref-all
@@ -343,10 +346,6 @@ zero?
 |
 ~
 
-fn
-lambda
-lambda-macro
-
 ;*2
 $0
 $1
@@ -369,13 +368,13 @@ $idx
 $it
 $main-args
 ostype
-; Boolean
+;context
+MAIN
+Class
+Tree
+;boolean
 nil
 true
-; Context
-Class
-MAIN
-Tree
 
 ;**1
 ; Not available on Win32 platlorms

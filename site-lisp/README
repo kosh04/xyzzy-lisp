@@ -16,15 +16,21 @@
 ## 自作もの
 
 * cygwin.l - 今のところmanコマンドが使えるくらい
-* newlisp.l - newLISP編集用メジャーモード
 * redef.l - ~/lisp/以下の関数の再定義
-* libmagic.l - ファイル判別ライブラリ(file)
+* newlisp.l - newLISP編集用メジャーモード
   必要なファイル
-  - etc/magic.mgc (or magic)
-  - etc/magic1.dll
-  - etc/regex2.dll
+  - ../etc/newLISP - キーワードファイル
+  - http://github.com/kosh04/newlisp-files >> nelisp_manual.txt - マニュアルファイル
+* newlispfn.l - newLISPの関数の移植
+* libmagic.l - ファイル識別ライブラリ(file)
+  必要なファイル
+  - ../etc/magic.mgc (or magic)
+  - ../etc/magic1.dll
+  - ../etc/regex2.dll
+* emacs-help.l - [F1]をヘルプキーとして扱う
 * .xyzzy.l - その他小物
 
 ※GitHubのWebページの指定文字コード(utf8)と各ファイルの文字コード(sjis)が異
 なるため、ブラウザでの表示が化けて見えるのは仕様です。
 
+NetInstallerには対応していません。本人が使っていないので。

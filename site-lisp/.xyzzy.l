@@ -8,6 +8,13 @@
 
 (require "cl")
 
+#+NIL
+(progn
+  (require "destructuring-bind")
+  (import 'destructuring:destructuring-bind))
+
+(require "dbind")
+
 ;; WIN32API
 (require "wip/winapi")
 (require "api")
@@ -38,12 +45,12 @@
   "元のサイズに戻す."
   (interactive)
   (ShowWindow (get-window-handle) SW_RESTORE)) ; 9
-(global-set-key #\M-F10
-                (defun toggle-xyzzy-window ()
-                  (interactive)
-                  (if (zerop (IsZoomed (get-window-handle)))
-                      (maximize-xyzzy)
-                      (restore-xyzzy))))
+(defun toggle-xyzzy-window ()
+  (interactive)
+  (if (zerop (IsZoomed (get-window-handle)))
+      (maximize-xyzzy)
+      (restore-xyzzy)))
+(global-set-key #\M-F10 'toggle-xyzzy-window)
 
 ;; from estartup.l
 (defun load-xyzzyrc ()
@@ -54,6 +61,11 @@
             :if-does-not-exist nil :verbose nil :print nil))))
 ;; USBからの起動に使えそう
 ;; (add-hook '*post-startup-hook* 'load-xyzzyrc)
+
+;; nilなら、JIS X0208に存在する文字をUnicodeから内部コードに変換する際、
+;; 日本語の文字として扱う (ChangeLog Version 0.2.2.205)
+;; デフォルトは t
+(setq *unicode-to-half-width* nil)
 
 (defun current-word (&optional highlight?)
   "カーソル位置にある単語を返します."
@@ -98,13 +110,13 @@
 
 #|
 (defun foobar ()
-"最近開いたファイル"
-(interactive)
-(popup-list (subseq *minibuffer-file-name-history* 0 9)
-            #'(lambda (file)
-                (find-file file)
-                (add-history file '*minibuffer-buffer-name-history*)
-                (refresh-screen))))
+  "最近開いたファイル"
+  (interactive)
+  (popup-list (subseq *minibuffer-file-name-history* 0 9)
+              #'(lambda (file)
+                  (find-file file)
+                  (add-history file '*minibuffer-buffer-name-history*)
+                  (refresh-screen))))
 |#
 
 ;; 閉じたタブを元に戻す、を自分用に改変
@@ -219,8 +231,8 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
   (interactive "p")
   (shell-next-prompt (- n)))
 
-(define-key ed::*shell-mode-map* '(#\C-c #\C-p) #'shell-previous-prompt)
-(define-key ed::*shell-mode-map* '(#\C-c #\C-n) #'shell-next-prompt)
+(define-key ed::*shell-mode-map* '(#\C-c #\C-p) 'shell-previous-prompt)
+(define-key ed::*shell-mode-map* '(#\C-c #\C-n) 'shell-next-prompt)
 
 (global-set-key '(#\C-c #\s)
                 (defun shell-popup ()
@@ -249,7 +261,19 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
   (error 'quit))
 (global-set-key #\C-g 'keyboard-quit)
 
+;; tips/ファイルの暗号化(Rijndael) より
+;; http://xyzzy.s53.xrea.com/wiki/index.php?cmd=read&page=tips%2F%A5%D5%A5%A1%A5%A4%A5%EB%A4%CE%B0%C5%B9%E6%B2%BD(Rijndael)
+(defmacro with-temp-file ((temp-file) &body body)
+  `(let ((,temp-file ,(make-temp-file-name)))
+     (unwind-protect
+         (progn ,@body)
+       (delete-file ,temp-file :if-does-not-exist :error :if-access-denied :error))))
+(setf (get 'with-temp-file 'ed:lisp-indent-hook) 1)
+;; (with-temp-file (dest) (truename dest)) => "C:/tmp/~xyzirtx.tmp"
+
 (defun echo (input &optional output)
+  "INPUTストリームの中身をOUTPUTに流す.
+デフォルトの出力先は*standard-output*."
   #+NIL
   ;; 1文字単位はさすがに遅い
   (do ((c #1=(read-char input nil :eof) #1#))
@@ -259,8 +283,8 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
   (loop
     ;; 末尾の改行も考慮するならread-lineは多値でとるべき
     (multiple-value-bind (line missing-newline-p)
-        (read-line input nil :eof)
-      (when (eq line :eof) (return))
+        (read-line input nil :EOF)
+      (when (eq line :EOF) (return))
       (princ line output)
       (unless missing-newline-p (terpri output)))))
 
@@ -271,12 +295,10 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
 
 (defun shell-command-to-string (command)
   "Execute shell command COMMAND and return its output as a string."
-  (let ((outfile (make-temp-file-name "xyzzycmd-")))
-    (unwind-protect
-        (with-output-to-string (stream)
-          (call-process command :output outfile :show :minimize :wait t)
-          (cat outfile stream))
-      (and outfile (delete-file outfile)))))
+  (with-temp-file (outfile)
+    (with-output-to-string (stream)
+      (call-process command :output outfile :show :minimize :wait t)
+      (cat outfile stream))))
 
 (defun command-substitution (command)
   "外部コマンドの結果を文字列にして返します."
@@ -290,11 +312,11 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
   (or (and (not force-update)
            *keymaplist*)
       (long-operation
-	(do-all-symbols (sym *keymaplist*)
-	  (if (and (boundp sym)
-		   (keymapp (eval sym)))
-	      (push sym *keymaplist*))
-	  ))))
+        (do-all-symbols (sym *keymaplist*)
+          (if (and (boundp sym)
+                   (keymapp (eval sym)))
+              (push sym *keymaplist*))
+          ))))
 
 (defun describe-binding-anymap (keymap)
   "任意のキーマップの割り当て一覧を表示."
@@ -384,30 +406,7 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
         (insert "\n"))
       (goto-char (point-min)))
     (pop-to-buffer obuffer)))
-
-(defun find-library (lib)
-  "*load-path* の中から適当に選んで開く."
-  (interactive (list (read-exist-library "Find library: ")))
-  (let ((file (find-load-path lib)))
-    (when file
-      (if (string-match "\\.lc$" file)
-          (setq file (substring file 0 -1)))
-      (find-file file)
-      (add-history file '*minibuffer-file-name-history*))))
-
-(defun read-exist-library (prompt &optional modules-only)
-  (completing-read prompt
-                   (if modules-only
-                       *modules*
-                       (mapcan #'(lambda (path)
-                                   ;; "*.l" -> "*"
-                                   (mapcar #'(lambda (f) (substring f 0 -2))
-                                           (directory path :recursive t :wild "*.l")))
-                               *load-path*))
-                   :case-fold t :must-match t))
-
-;; (global-set-key '(#\C-c #\f) 'find-library)
-
+(setf (symbol-function 'list-colors-display) #'colortest)
 
 ;; ミニバッファ内で単語削除
 ;; http://white.s151.xrea.com/wiki/index.php?memo%2Fxyzzy%2Fminibuffer#w95b8c17
@@ -482,23 +481,12 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
 (export 'message!)
 (in-package "user")
 
-;; tips/ファイルの暗号化(Rijndael) より
-;; http://xyzzy.s53.xrea.com/wiki/index.php?cmd=read&page=tips%2F%A5%D5%A5%A1%A5%A4%A5%EB%A4%CE%B0%C5%B9%E6%B2%BD(Rijndael)
-(defmacro with-temp-file ((temp-file) &body body)
-  `(let ((,temp-file ,(make-temp-file-name)))
-     (unwind-protect
-         (progn ,@body)
-       (delete-file ,temp-file :if-does-not-exist :error :if-access-denied :error))))
-(setf (get 'with-temp-file 'ed:lisp-indent-hook) 1)
-;; (with-temp-file (dest) (truename dest)) => "C:/tmp/~xyzirtx.tmp"
-
 (defun buffer-list-if (fn)
   "FNを満たすバッファのリストを返します."
   (remove-if-not fn (buffer-list)))
 
 (defun process-list ()
   "バッファプロセスのリスト."
-  ;; (remove-if-not #'processp (mapcar #'buffer-process (buffer-list)))
   (mapcar #'buffer-process
           (buffer-list-if #'buffer-process)))
 
@@ -525,7 +513,7 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
 ;; (kill-xyzzy)する時にyes-no-or-cancel-p/yes-or-no-pに引っかかるとイヤになる
 ;; [関連するもの] バッファプロセス、保存、排他制御
 ;; (need-buffer-save-p buf) (verify-buffers-file-modtime) (buffer-modified-p &optional buf)
-;; *kill-xyzzy-hook*に時間をかけるとまずいかもね -> 先に実行させておこう
+;; *kill-xyzzy-hook*に時間をかけるとまずいかも -> 先に実行させておこう
 (defun reboot-xyzzy (&optional cleanup)
   "xyzzyを再起動する."
   (interactive "P")
@@ -631,11 +619,13 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
       (set-buffer-colors nil)))
 ;; (global-set-key '(#\C-x #\C-q) 'toggle-read-only-colorful)
 
-(defun get-window-end-line ()
+(defun get-window-end-line (&optional window)
   "ウィンドウの後尾行"
-  (if (pos-visible-in-window-p (point-max))
-      (buffer-lines)
-      (+ (window-lines) (get-window-start-line))))
+  (save-window-excursion
+    (set-window window)
+    (if (pos-visible-in-window-p (point-max))
+        (buffer-lines)
+      (+ (window-lines) (get-window-start-line)))))
 
 ;; 普段見えないバッファだって参照したいときもある
 (defun switch-to-invisible-buffer (buffer)
@@ -671,8 +661,16 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
 (defun map-backslash-to-slash-region (from to)
   (interactive "*r")
   (save-restriction
+    (goto-char (min from to))
     (narrow-to-region from to)
     (query-replace "\\" "/" 'noerror)))
+
+(defun map-slash-to-backslash-region (from to)
+  (interactive "*r")
+  (save-restriction
+    (goto-char (min from to))
+    (narrow-to-region from to)
+    (query-replace "/" "\\" 'noerror)))
 
 ;; $EMACS/lisp/simple.el
 (defun emacs-delete-blank-lines ()
@@ -766,56 +764,17 @@ On nonblank line, delete any immediately following blank lines."
   (gethash name *mime-charset-name-hash-table*))
 
 ;; ヘルプをもう少し便利に
-;; (require "emacs-help")
-;; (global-set-key #\F1 'emacs-help)
-
-;; Help
-(defvar help-map (make-sparse-keymap))
-(setf (symbol-function 'help-command-prefix) help-map)
-(global-set-key #\F1 'help-command-prefix)
-(define-key help-map #\A 'user::imm-apropos)           ; 'apropos
-(define-key help-map #\a 'user::imm-command-apropos)   ; 'command-apropos
-(define-key help-map #\b 'user::imm-describe-bindings) ; 'describe-bindings
-(define-key help-map #\c 'describe-key-briefly)
-(define-key help-map #\f 'describe-function)
-(define-key help-map #\i 'ed:info)
-(define-key help-map #\k 'user::imm-describe-key)      ; 'describe-key
-(define-key help-map #\l 'view-lossage)
-(define-key help-map #\v 'describe-variable)
-(define-key help-map #\F1 'show-html-help)
-(define-key help-map #\? 'call-help-list)
-
-(define-key help-map #\C-a 'about-dialog)
-(define-key help-map #\q 'quit)                        ; help-quit
-
-(define-key help-map #\C-l 'find-library)
-
-(defun call-help-list ()
-  (interactive)
-  (command-execute-in-keymap "Help: " help-map))
-
-(defun command-execute-in-keymap (prompt keymap)
-  (unless (keymapp keymap)
-    (error 'type-error :datum keymap :expected-type 'keymap))
-  (labels ((expand-keymap (map)
-             (case (type-of map)
-               (simple-vector
-                (mapcan #'expand-keymap-1 (coerce map 'list)))
-               (cons
-                (mapcan #'expand-keymap-1 (mapcar #'cdr (rest map))))))
-           (expand-keymap-1 (x)
-             (cond ((null x) nil)
-                   ((keymapp x) (expand-keymap x))
-                   (t (list x)))))
-    (let ((sym (find-symbol
-                (completing-read prompt (expand-keymap keymap)
-                                 :must-match t))))
-      (if (commandp sym)
-          (call-interactively sym)
-          (error "関数が定義されていません: ~A" sym)))))
+(require "emacs-help")
+(require "info-modoki-mode")
+(require "info")
+(define-key help-map #\A 'imm-apropos)
+(define-key help-map #\a 'imm-command-apropos)
+(define-key help-map #\b 'imm-describe-bindings)
+(define-key help-map #\i 'info)
+(define-key help-map #\k 'imm-describe-key)
 
 ;; メニューから文字コード指定して #'revert-buffer
-;; ファイルに関連付けられていないバッファだとエラーになるのは仕様です
+;; ファイルに関連付けられていないバッファだとエラーになるのは仕様
 ;; xyzzy Part7 >>804
 (defun add-menu-revert ()
   (let ((file-menu (get-menu *app-menu* 'ed::file)))
@@ -832,51 +791,35 @@ On nonblank line, delete any immediately following blank lines."
   (save-excursion
     (set-buffer (get-buffer-create "*scratch*"))
     (unless (zerop (buffer-size))
-      (write-file (merge-pathnames ".scratch.l" (si:system-root))
-                  'no-message))))
+      (write-file (merge-pathnames ".scratch.l" (si:system-root)) 'nomsg))))
 (add-hook '*kill-xyzzy-hook* 'save-scratch-buffer)
 
 (defun toggle-scratch-buffer (&optional popup)
   (interactive "P")
   (labels ((window-buffer-list ()
              (mapcar #'second (third (current-window-configuration)))))
-    (let ((scratch (get-buffer-create "*scratch*")))
+    (let ((new-buffer-p (not (find-buffer #1="*scratch*")))
+          (scratch (get-buffer-create #1#)))
       (if (or popup (find scratch (window-buffer-list)))
           (pop-to-buffer scratch t)
-          (set-buffer scratch))
-      ;; (funcall *initial-buffer-mode*)
-      )))
+        (set-buffer scratch))
+      (when (or (not (eq buffer-mode #2=*initial-buffer-mode*))
+                new-buffer-p)
+        (funcall #2#))))
+  t)
 (global-set-key '(#\C-x #\t #\s) 'toggle-scratch-buffer)
 
-(defvar *tail-f-command*
-  (merge-pathnames "tail-f.exe" (etc-path)))
+(require "cygwin")
+(setq ed::*cygwin-environment-alist* '(("LANG" . "ja_JP.SJIS")))
+;; (setq ed::*cygwin-environment-alist* '(("LANG" . "C")))
+;(global-set-key '(#\C-x #\r #\c) 'run-cygwin-console)
+(pushnew "/usr/local/share/man" *manpath* :test #'equal)
 
 (defun tail-f-console (filename)
   (interactive "ftail-f: " :title0 "tail-f")
-  (launch-application (format nil "~A ~A" *tail-f-command* filename)))
-
-;; CL の基本関数を調べる
-(require "hyperspec")
-(import '(hyperspec:hyperspec hyperspec:hyperspec-format))
-(define-key ed::*lisp-mode-map* '(#\C-c #\h) 'hyperspec)
-(define-key ed::*lisp-interaction-mode-map* '(#\C-c #\h) 'hyperspec)
-(setq hyperspec::*hyperspec-root*
-      ;; "http://www.lispworks.com/documentation/HyperSpec/"
-      "C:/home/lxuser/code/lisp/HyperSpec-7-0/HyperSpec/")
-
-;; (defun hyperspec-lookup (&optional use-lispworks)
-;;   (interactive "P")
-;;   (let ((hyperspec::*hyperspec-root*
-;;          (cond (use-lispworks "http://www.lispworks.com/documentation/HyperSpec/")
-;;                (t hyperspec::*hyperspec-root*))))
-;;     (hyperspec:hyperspec (completing-read
-;;                           "Look up symbol in Common Lisp HyperSpec: "
-;;                           hyperspec::*hyperspec-symbols*
-;;                           :default (hyperspec::get-symbol-at-point)
-;;                           :history hyperspec::*hyperspec-history*
-;;                           :must-match t))))
-;; (define-key ed::*lisp-mode-map* '(#\C-c #\h) 'hyperspec-lookup)
-;; (define-key ed::*lisp-interaction-mode-map* '(#\C-c #\h) 'hyperspec-lookup)
+  (launch-application (format nil "\"~A\" ~A"
+                              (merge-pathnames "tail-f.exe" (etc-path))
+                              filename)))
 
 ;; http://calypso.tux.org/pipermail/xemacs-beta/2009-January/015729.html
 (defun check-parens ()
@@ -901,5 +844,26 @@ On nonblank line, delete any immediately following blank lines."
 		 (progn (skip-chars-forward " \t\n") (point)))
   (insert #\SPC))
 (setf (symbol-function 'just-one-space) #'_just-one-space)
+
+;; $EMACS/lisp-mode.el
+(defun xyzzy-lisp-byte-compile-and-load (&optional force-compile)
+  "Byte-compile the current file (if it has changed), then load compiled code."
+  (interactive "P")
+  (or (file-visited-p)
+      (error "The buffer must be saved in a file first"))
+  ;; Recompile if file or buffer has changed since last compilation.
+  (if (and (buffer-modified-p)
+           (y-or-n-p "Save buffer ~A first? " (get-buffer-file-name)))
+      (save-buffer))
+  (let* ((buffer-file-name (get-buffer-file-name))
+         (compiled-file-name (compile-file-pathname buffer-file-name)))
+    (if (and (file-newer-than-file-p compiled-file-name buffer-file-name)
+             (not force-compile))
+	(load-file compiled-file-name)
+      (and (byte-compile-file buffer-file-name)
+           (load compiled-file-name)))))
+
+(define-key ed::*lisp-mode-map* '(#\C-c #\C-k) 'xyzzy-lisp-byte-compile-and-load)
+(define-key ed::*lisp-interaction-mode-map* '(#\C-c #\C-k) 'xyzzy-lisp-byte-compile-and-load)
 
 ;;; util.l ends here

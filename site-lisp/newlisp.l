@@ -1,8 +1,47 @@
 ;;; -*- Mode: Lisp; Package: EDITOR; Encoding: Shift_JIS -*-
-
+;;;
 ;;; newlisp.l --- newLISP編集用メジャーモード
+;;;
+;;; Copyright (C) 2008-2010 KOBAYASHI Shigeru (kosh)
+;;;
+;;; This file is NOT part of xyzzy.
+;;;
 
-;; This file is NOT part of xyzzy.
+#|
+### これは何？
+
+LISP風軽量スクリプト言語`newLISP'を編集するための簡単なメジャーモードです。
+
+### インストール
+
+(require "newlisp")
+(pushnew '("\\.lsp" . newlisp-mode) *auto-mode-alist* :test #'equal)
+
+### TODO:
+
+* インデントをlisp-modeから間借りしているのは直すべきか
+* デバッガモードが欲しい
+  prompt-debugger-mode
+  " 0>"
+  [-> 2 ] s|tep n|ext c|ont q|uit >
+  (read-char *keyboard*)
+  ログ機能(-l,-L)とtail-f使えないのかね
+
+### Known Bugs:
+
+* 制御文字を含む出力が正しく表示されない "^@" => ""
+
+### Change Log:
+
+2008-11-18 version 0.01 初版
+2009-04-01 version 0.02 それなりに使えるようになったはず
+2009-08-01 newLISPのバージョンアップに伴うマイナーチェンジ
+2009-12-01 DLLを扱えるように (newlispEvalStr)
+2010-01-21 整理整頓
+
+|#
+
+;;; Code:
 
 (provide "newlisp")
 
@@ -13,46 +52,37 @@
   (require "shell")
   (require "wip/winapi"))
 
-(export '(*newlisp-exe* *newlisp-dll*))
+(export '(*newlisp-exe*
+          *newlisp-dll*
+          *newlisp-switches*
+          *newlisp-load-init-p*))
 
 (defvar *newlisp-directory*
   (or (si:getenv "NEWLISPDIR")
-      (merge-pathnames "newlisp" (si:getenv "PROGRAMFILES"))))
+      (merge-pathnames "newlisp/" (si:getenv "PROGRAMFILES"))))
 (defvar *newlisp-exe* (merge-pathnames "newlisp.exe" *newlisp-directory*))
 (defvar *newlisp-dll* (merge-pathnames "newlisp.dll" *newlisp-directory*))
+
+;; NOTE: -C オプションは出力を促すために必須
+(defvar *newlisp-switches* "-C -s10000"
+  "newlisp: コマンドラインオプション")
+(defvar *newlisp-load-init-p* t
+  "起動時に初期化ファイル(init.lsp)を読み込むかどうか.")
 
 (export '(newlisp-eval
           newlisp-eval-region
           newlisp-eval-last-sexp
           newlisp-eval-buffer
           newlisp-eval-defun
+          newlisp-load-file
           newlisp-mode
           run-newlisp
           run-newlisp-console
           newlisp-kill-process
           newlisp-completion
+          newlisp-show-log-buffer
           newlisp-browse-manual
           *newlisp-mode-hook*))
-
-#|
-(defun newlisp-eval-once ()
-  (interactive)
-  (let ((msg (user::command-substitution
-              (format nil "~A -e ~S"
-                      *newlisp-exe*
-                      (save-excursion
-                        (buffer-substring (progn (backward-sexp) (point))
-                                          (progn (forward-sexp) (point))))))))
-    (setq msg (string-trim '(#\LFD #\TAB #\SPC) msg))
-    (if (string-match "^ERR:" msg)
-        (ding))
-    (cond (*prefix-args*
-           (indent-for-comment)
-           (insert msg))
-          ((find #\LFD msg)
-           (message-box msg))
-          (t (message "~A" msg)))))
-|#
 
 (defvar *newlisp-process* nil)
 (defvar *newlisp-process-buffer* nil)
@@ -60,46 +90,36 @@
 (defvar *newlisp-process-encoding* *encoding-utf8n*)
 (defvar *newlisp-output-stream* nil)
 (defvar *newlisp-context* "MAIN")
-(defvar *newlisp-load-init-p* t)
 
-#|(defun newlisp-process (&key (if-does-not-exist :error))
-  (or (and (processp *newlisp-process*)
-           (eq :run (process-status *newlisp-process*))
-           *newlisp-process*)
-      (let ((*default-process-encoding* *newlisp-process-encoding*))
-        (make-process "newlisp.exe -L /tmp/nl-daemon.log -c -p 4711"
-                      :output (get-buffer-create *newlisp-process-buffer-name*))
-        (setq *newlisp-process*
-              (open-network-stream (selected-buffer) "localhost" 4711))
-        (set-process-filter *newlisp-process*
-                            (lambda (proc str)
-                              (message "~A" str)))
-        ;; (set-process-sentinel proc 'newlisp-sentinel)
-        *newlisp-process*)))|#
+
+;;; プロセス
 
 (defun newlisp-process (&key (if-does-not-exist :error))
-  (or *newlisp-process*
-      (case if-does-not-exist
-        (:error (error "サブプロセスが走ってないで"))
-        (:create (newlisp-make-process)))))
+  (or
+   (and (processp *newlisp-process*)
+        (eq :run (process-status *newlisp-process*))
+        *newlisp-process*)
+   (case if-does-not-exist
+     (:error (error "サブプロセスが走ってないで"))
+     (:create (newlisp-make-process)))))
 
-(defun newlisp-make-process ()
+(defun newlisp-make-process (&key (type :process))
   (setq *newlisp-process-buffer* (get-buffer-create *newlisp-process-buffer-name*)
         *newlisp-output-stream* (make-buffer-stream *newlisp-process-buffer*))
-  ;; options: -C force prompts
-  (let ((proc (make-process (format nil "~A ~A -C -w \"~A\""
-                                    (if (file-exist-p *newlisp-exe*)
-                                        (get-short-path-name *newlisp-exe*)
-                                        *newlisp-exe*)
-                                    (if *newlisp-load-init-p* "" "-n")
-                                    (default-directory))
-                            :output *newlisp-process-buffer*
-                            :incode *newlisp-process-encoding*
-                            :outcode *newlisp-process-encoding*)))
-    (set-process-filter proc 'newlisp-filter)
-    (set-process-sentinel proc 'newlisp-sentinel)
-    (setq *newlisp-process* proc)
-    *newlisp-process*))
+  (let ((command (if (file-exist-p *newlisp-exe*)
+                     (get-short-path-name *newlisp-exe*)
+                   *newlisp-exe*))
+        (switches (split-string *newlisp-switches* " ")))
+    (if (null *newlisp-load-init-p*)
+        (pushnew "-n" switches :test #'equal))
+    (let ((proc (make-process (format nil "~{~A~^ ~}" `(,command ,@switches))
+                              :output *newlisp-process-buffer*
+                              :incode *newlisp-process-encoding*
+                              :outcode *newlisp-process-encoding*)))
+      (set-process-filter proc #'newlisp-filter)
+      (set-process-sentinel proc #'newlisp-sentinel)
+      (setq *newlisp-process* proc)
+      *newlisp-process*)))
 
 (defun newlisp-filter (proc str)
   (format *newlisp-output-stream* "~A" str)
@@ -111,7 +131,7 @@
                          (cond ((null match) "")
                                ((string= match "") "MAIN")
                                (t match)))
-          str (string-left-trim '(#\LFD) str))
+          str (string-left-trim "\n" str))
     (funcall *newlisp-output-function* str *newlisp-context*)
     (refresh-screen)
     (setq *newlisp-context* next-context)))
@@ -133,19 +153,17 @@
       (when (string-match "^ERR:" str) (ding))
       ;; FIXME: *prefix-args* をここで参照するのがありなのか分からない
       (cond (*prefix-args*
-             (if (find #\LFD str) (newline) (indent-for-comment))
+             (when (find #\LFD str)
+               (newline))
+             (indent-for-comment)
              (insert str))
             ((find #\LFD str)
              (popup-string str (point)))
             (:else
              (minibuffer-message "~A> ~A"
                                  (if (string= context "MAIN") "" context)
-                                 str)))))
-
-(defun set-newlisp-output-function (fn)
-  "newlispプロセスの出力関数を指定する.
-関数の引数は (出力 現在のコンテキスト)"
-  (setq *newlisp-output-function* fn))
+                                 str))))
+  "newLISPプロセスの出力用関数.")
 
 (defun newlisp-eval (str-sexp &optional stream)
   (interactive "snewLISP eval: ")
@@ -178,85 +196,72 @@
         (newlisp-eval-region (region-beginning) (region-end))
       (set-mark t))))
 
-(export 'newlisp-load-file)
 (defun newlisp-load-file (file)
-  (interactive "fnewLISP load: ")
+  (interactive "fnewLISP load: " :default0 (get-buffer-file-name))
   (newlisp-eval (format nil "(load {~A})" file)))
 
 (defun newlisp-kill-process ()
   (interactive)
-  ;; (newlisp-eval "(exit)")
-  (signal-process (newlisp-process))
-  ;; (kill-process (newlisp-process))
+  #+NIL (newlisp-eval "(exit)")
+  #+NIL (signal-process (newlisp-process))
+  (kill-process (newlisp-process))
   )
 
-#|
-;; UTF-8 で通信することで日本語もそこそこ使える
-;; call-process より make-process かなあ
-;; (call-process ~ :wait nil) <= 待たない方が良い
-(defun newlisp-eval-buffer (args)
-  ;; (interactive "P")
-  (interactive (list (if *prefix-args* (read-string "newLISP exec args: ") "")))
-  ;; (setq args (if args (read-string "newLISP exec args: ") ""))
-  (unless (stringp args)
-    (error "文字列引数を頂戴な"))
-  (user::with-temp-file (out)
-    (user::with-temp-file (exe)
-      (write-region (point-min) (point-max) exe nil *encoding-utf8n*)
-      (call-process (format nil "~A ~A ~A" *newlisp-exe* exe args)
-                    :output out :show :minimize :wait t))
-    (cond ((plusp (file-length out))
-           (and (with-open-file (e out :direction :input)
-                  (let (line)
-                    (dotimes (i 3 t)
-                      (setq line (read-line e nil ""))
-                      (if (string-match "^ERR:" line)
-                          (error line)))))
-                (let ((*expected-fileio-encoding* *encoding-utf8n*))
-                  (declare (special *expected-fileio-encoding*))
-                  (with-output-to-temp-buffer ("*newLISP output*")
-                    (insert-file-contents out)))))
-          (t
-           (message "newLISP: no output")))))
-|#
+(defun newlisp-kill-process-maybe ()
+  (interactive)
+  (if (ignore-errors (newlisp-process))
+      (newlisp-kill-process)))
 
-;; マルチバイト使うならファイルの文字コードはutf8n
-;; 文字化けするのはコンソールの問題なのか？
 (defun newlisp-eval-buffer (args)
+  "編集中のファイルをnewlisp.exeの引数として実行する."
   (interactive (list (if *prefix-args*
                          (read-string "newLISP exec args: ")
-                         "")))
-  (execute-subprocess (format nil "~A \"~A\" ~A"
-                              (get-short-path-name *newlisp-exe*)
-                              (get-buffer-file-name)
-                              args)
-                      nil (prog1
-                              ;; バッファの文字コード変更しても意味ない気がするなあ
-                              (get-buffer-create #1="*newLISP output*")
-                            (set-buffer-fileio-encoding
-                             *newlisp-process-encoding* #1#))))
+                       "")))
+  (let ((*default-process-encoding* *newlisp-process-encoding*))
+    (execute-subprocess (format nil "~A \"~A\" ~A"
+                                (get-short-path-name *newlisp-exe*)
+                                (get-buffer-file-name)
+                                args)
+                        nil "*newLISP output*")))
 
-;; 既に別のshellが起動されていると困るなあ
-(defun run-newlisp (&optional usedos)
-  (interactive "P")
-  (let ((*eshell* (format nil "~A -C -w ~S"
-                          (get-short-path-name *newlisp-exe*)
-                          (default-directory)))
-        (*shell-mode-hook*
-         (list #'(lambda ()
-                   (rename-buffer "*newLISP*")
-                   (set-buffer-fold-type-none)
-                   )))
-        (*default-process-encoding* *newlisp-process-encoding*))
-    (if usedos
-        (launch-application *eshell*)
-        (shell))))
-
-(defun run-newlisp-console ()
+(defun run-newlisp-console (&optional command)
   (interactive)
-  (launch-application *newlisp-exe*))
+  (launch-application (or command *newlisp-exe*)))
 
-(defvar *newlisp-keyword-file* "newLISP")
+(defun run-newlisp (&optional consolep)
+  (interactive "P")
+  (let ((command (format nil "~A ~A ~A"
+                         (get-short-path-name *newlisp-exe*)
+                         (if *newlisp-load-init-p* "" "-n")
+                         *newlisp-switches*))
+        (*default-process-encoding* *newlisp-process-encoding*))
+    (when consolep
+      (run-newlisp-console command)
+      (return-from run-newlisp t))
+    (set-buffer (get-buffer-create "*newLISP*"))
+    (let ((proc (buffer-process (selected-buffer))))
+      (and proc (eq (process-status proc) :run)
+           (return-from run-newlisp t)))
+    (goto-char (point-max))
+    ;; newlisp-shell-mode
+    (progn
+      (setq mode-name "newLISP Shell")
+      (setq buffer-mode 'shell-mode)
+      (use-keymap *shell-mode-map*)
+      (setq need-not-save t)
+      (setq auto-save nil)
+      ;(set-buffer-fold-type-none)
+      (setq *shell-ret* "\n" *shell-echo* nil))
+    (make-process command
+                  :output (selected-buffer)
+                  :incode *newlisp-process-encoding*
+                  :outcode *newlisp-process-encoding*
+                  :eol-code *eol-guess*)))
+
+
+;;; 編集
+
+(defvar *newlisp-keyword-file* "newLISP") ; ~/etc/newLISP
 (defvar *newlisp-keyword-hash-table* nil)
 (defvar *newlisp-mode-hook* nil)
 (defvar *newlisp-completion-list* nil)
@@ -277,24 +282,24 @@
   (setq *newlisp-mode-syntax-table* (make-syntax-table))
   (copy-syntax-table *lisp-mode-syntax-table* *newlisp-mode-syntax-table*)
   (set-syntax-match *newlisp-mode-syntax-table* #\{ #\})
-  ;; これ、効いていない気がするんだが
+  ;; 効いていない気がする...
   (set-syntax-start-comment *newlisp-mode-syntax-table* #\# nil)
   (set-syntax-end-comment *newlisp-mode-syntax-table* #\LFD nil t)
   (set-syntax-start-multi-comment *newlisp-mode-syntax-table* "[text]")
   (set-syntax-end-multi-comment *newlisp-mode-syntax-table* "[/text]")
   )
 
-(defparameter *newlisp-mode-map*
+(defvar *newlisp-mode-map*
   (let ((keymap (copy-keymap ed::*lisp-mode-map*)))
     ;; (define-key keymap #\TAB 'lisp-indent-line)
     ;; (define-key keymap #\C-j 'newlisp-eval-last-sexp)
-    ;; (define-key keymap #\F5 'newlisp-eval-buffer)
+    (define-key keymap #\F5 'newlisp-eval-buffer)
     (define-key keymap #\M-: 'newlisp-eval)
     (define-key keymap '(#\C-x #\C-e) 'newlisp-eval-last-sexp)
     (define-key keymap '(#\C-c #\C-r) 'newlisp-eval-region)
-    (define-key keymap #\M-C-x 'newlisp-eval-defun)
+    (define-key keymap #\M-C-x 'newlisp-eval-defun)        ; ESC C-x
     (define-key keymap '(#\C-c #\TAB) 'newlisp-completion) ; C-c C-i
-    (define-key keymap #\M-C-i 'newlisp-completion) ; M-TAB
+    (define-key keymap #\M-C-i 'newlisp-completion)        ; M-TAB
     (define-key keymap '(#\C-c #\C-z) 'newlisp-show-log-buffer)
     (define-key keymap '(#\C-c #\C-l) 'newlisp-load-file)
     keymap))
@@ -315,116 +320,33 @@
   (when *newlisp-keyword-hash-table*
     (make-local-variable 'keyword-hash-table)
     (setq keyword-hash-table *newlisp-keyword-hash-table*))
+  (setq comment-start "; " comment-end "") ; or "# "
   ;; (newlisp-process :if-does-not-exist :create)
   (run-hooks '*newlisp-mode-hook*))
+
+(defun newlisp-keyword-list ()
+  (prog2
+      (if (null *newlisp-keyword-hash-table*)
+          (setq *newlisp-keyword-hash-table*
+                (load-keyword-file *newlisp-keyword-file*)))
+      (make-list-from-keyword-table *newlisp-keyword-hash-table*)))
 
 (defun newlisp-current-word ()
   (save-excursion
     (let ((from (progn (skip-syntax-spec-backward "w_") (point)))
           (to (progn (skip-syntax-spec-forward "w_") (point))))
-      (if (/= from to)
-          (buffer-substring from to)
-          nil))))
+      (when (< from to)
+        (buffer-substring from to)))))
 
-(defvar *newlisp-manual-link-alist*
-  '(("!" . "shell") ("+-*/%" . "arithmetic") ("Ab" . "abort") ("Ap" . "append") ("As" . "asin") ("Ba" . "base64-dec") ("Ca" . "callback") ("Cl" . "clean") ("Co" . "copy") ("Cu" . "current-line") ("De" . "dec") ("Di" . "difference") ("Do" . "do-until") ("En" . "encrypt") ("Ex" . "exec") ("Fi" . "file-info") ("Fl" . "flat") ("Ga" . "gammaln") ("Gl" . "global") ("In" . "inc") ("La" . "lambdap") ("Li" . "listp") ("Ma" . "macrop") ("Mu" . "mul") ("Net" . "net-accept") ("New" . "new") ("Nt" . "nth") ("Pa" . "pack") ("Pr" . "pretty-print") ("Ra" . "randomize") ("Rea" . "read-buffer") ("Reg" . "regex") ("Sea" . "search") ("Seq" . "sequence") ("Sl" . "sleep") ("St" . "starts-with") ("Sy" . "sync") ("Ti" . "time-of-day") ("Tr" . "truep") ("Ut" . "utf8") ("Wr" . "write-file") ("+, -, *, /,%" . "arithmetic") ("<, >, =," . "logical") ("<=, >=, !=" . "logical") (":" . "colon") ("and" . "and") ("append" . "append") ("apply" . "apply") ("args" . "args") ("assoc" . "assoc") ("begin" . "begin") ("bind" . "bind") ("case" . "case") ("catch" . "catch") ("chop" . "chop") ("clean" . "clean") ("cond" . "cond") ("cons" . "cons") ("constant" . "constant") ("count" . "count") ("curry" . "curry") ("def-new" . "def-new") ("define" . "define") ("define-macro" . "define-macro") ("difference" . "difference") ("do-until" . "do-until") ("do-while" . "do-while") ("doargs" . "doargs") ("dolist" . "dolist") ("dostring" . "dostring") ("dotimes" . "dotimes") ("dotree" . "dotree") ("dup" . "dup") ("ends-with" . "ends-with") ("exists" . "exists") ("eval" . "eval") ("expand" . "expand") ("first" . "first") ("filter" . "filter") ("find" . "find") ("find-all" . "find-all") ("flat" . "flat") ("fn" . "fn") ("for" . "for") ("for-all" . "for-all") ("if" . "if") ("if-not" . "if-not") ("index" . "index") ("intersect" . "intersect") ("lambda" . "lambda") ("lambda-macro" . "lambda-macro") ("last" . "last") ("length" . "length") ("let" . "let") ("letex" . "letex") ("letn" . "letn") ("list" . "list") ("local" . "local") ("lookup" . "lookup") ("map" . "map") ("match" . "match") ("member" . "member") ("not" . "not") ("nth" . "nth") ("or" . "or") ("pop" . "pop") ("pop-assoc" . "pop-assoc") ("push" . "push") ("quote" . "quote") ("ref" . "ref") ("ref-all" . "ref-all") ("rest" . "rest") ("replace" . "replace") ("reverse" . "reverse") ("rotate" . "rotate") ("select" . "select") ("set" . "set") ("set-ref" . "set-ref") ("set-ref-all" . "set-ref-all") ("setf setq" . "setf") ("silent" . "silent") ("slice" . "slice") ("sort" . "sort") ("starts-with" . "starts-with") ("swap" . "swap") ("unify" . "unify") ("unique" . "unique") ("unless" . "unless") ("until" . "until") ("when" . "when") ("while" . "while") ("address" . "address") ("bits" . "bits") ("char" . "char") ("encrypt" . "encrypt") ("eval-string" . "eval-string") ("explode" . "explode") ("float" . "float") ("format" . "format") ("get-char" . "get-char") ("get-float" . "get-float") ("get-int" . "get-int") ("get-long" . "get-long") ("get-string" . "get-string") ("int" . "int") ("join" . "join") ("lower-case" . "lower-case") ("name" . "name") ("pack" . "pack") ("parse" . "parse") ("regex" . "regex") ("regex-comp" . "regex-comp") ("setf" . "setf") ("source" . "source") ("string" . "string") ("sym" . "sym") ("title-case" . "title-case") ("trim" . "trim") ("unicode" . "unicode") ("unpack" . "unpack") ("upper-case" . "upper-case") ("utf8" . "utf8") ("utf8len" . "utf8len") ("abs" . "abs") ("acos" . "acos") ("acosh" . "acosh") ("add" . "add") ("asin" . "asin") ("asinh" . "asinh") ("atan" . "atan") ("atanh" . "atanh") ("atan2" . "atan2") ("beta" . "beta") ("betai" . "betai") ("binomial" . "binomial") ("ceil" . "ceil") ("cos" . "cos") ("cosh" . "cosh") ("crc32" . "crc32") ("crit-chi2" . "crit-chi2") ("crit-z" . "crit-z") ("dec" . "dec") ("div" . "div") ("erf" . "erf") ("exp" . "exp") ("factor" . "factor") ("fft" . "fft") ("floor" . "floor") ("flt" . "flt") ("gammai" . "gammai") ("atan" . "gammaln") ("gcd" . "gcd") ("ifft" . "ifft") ("inc" . "inc") ("log" . "log") ("min" . "min") ("max" . "max") ("mod" . "mod") ("mul" . "mul") ("pow" . "pow") ("round" . "round") ("sequence" . "sequence") ("series" . "series") ("sgn" . "sgn") ("sin" . "sin") ("sinh" . "sinh") ("sqrt" . "sqrt") ("sub" . "sub") ("tan" . "tan") ("tanh" . "tanh") ("det" . "det") ("invert" . "invert") ("mat" . "mat") ("multiply" . "multiply") ("transpose" . "transpose") ("array" . "array") ("array-list" . "array-list") ("array?" . "arrayp") ("<<, >>" . "bit_shift") ("&" . "bit_and") ("|" . "bit_inclusive") ("^" . "bit_exclusive") ("~" . "bit_not") ("atom?" . "atomp") ("context?" . "contextp") ("directory?" . "directoryp") ("empty?" . "emptyp") ("file?" . "filep") ("float?" . "floatp") ("global?" . "globalp") ("integer?" . "integerp") ("lambda?" . "lambdap") ("legal?" . "legalp") ("list?" . "listp") ("macro?" . "macrop") ("NaN?" . "NaNp") ("nil?" . "nilp") ("null?" . "nullp") ("number?" . "numberp") ("primitive?" . "primitivep") ("protected?" . "protectedp") ("quote?" . "quotep") ("string?" . "stringp") ("symbol?" . "symbolp") ("true?" . "truep") ("zero?" . "zerop") ("date" . "date") ("date-value" . "date-value") ("parse-date" . "parse-date") ("now" . "now") ("time" . "time") ("time-of-day" . "time-of-day") ("amb" . "amb") ("bayes-query" . "bayes-query") ("bayes-train" . "bayes-train") ("normal" . "normal") ("prob-chi2" . "prob-chi2") ("prob-z" . "prob-z") ("rand" . "rand") ("random" . "random") ("randomize" . "randomize") ("seed" . "seed") ("search" . "search") ("fv" . "fv") ("irr" . "irr") ("nper" . "nper") ("npv" . "npv") ("pv" . "pv") ("pmt" . "pmt") ("append-file" . "append-file") ("close" . "close") ("device" . "device") ("exec" . "exec") ("load" . "load") ("open" . "open") ("peek" . "peek") ("print" . "print") ("println" . "println") ("read-buffer" . "read-buffer") ("read-char" . "read-char") ("read-file" . "read-file") ("read-key" . "read-key") ("read-line" . "read-line") ("save" . "save") ("seek" . "seek") ("write-buffer" . "write-buffer") ("write-char" . "write-char") ("write-file" . "write-file") ("write-line" . "write-line") ("change-dir" . "change-dir") ("copy-file" . "copy-file") ("delete-file" . "delete-file") ("directory" . "directory") ("file-info" . "file-info") ("make-dir" . "make-dir") ("real-path" . "real-path") ("remove-dir" . "remove-dir") ("rename-file" . "rename-file") ("abort" . "abort") ("destroy" . "destroy") ("fork" . "fork") ("pipe" . "pipe") ("process" . "process") ("semaphore" . "semaphore") ("share" . "share") ("spawn" . "spawn") ("sync" . "sync") ("wait-pid" . "wait-pid") ("base64-enc" . "base64-enc") ("base64-dec" . "base64-dec") ("delete-url" . "delete-url") ("get-url" . "get-url") ("put-url" . "put-url") ("post-url" . "post-url") ("xml-error" . "xml-error") ("xml-parse" . "xml-parse") ("xml-type-tags" . "xml-type-tags") ("net-accept" . "net-accept") ("net-close" . "net-close") ("net-connect" . "net-connect") ("net-error" . "net-error") ("net-eval" . "net-eval") ("net-interface" . "net-interface") ("net-listen" . "net-listen") ("net-local" . "net-local") ("net-lookup" . "net-lookup") ("net-peer" . "net-peer") ("net-peek" . "net-peek") ("net-ping" . "net-ping") ("net-receive" . "net-receive") ("net-receive-from" . "net-receive-from") ("net-receive-udp" . "net-receive-udp") ("net-select" . "net-select") ("net-send" . "net-send") ("net-send-to" . "net-send-to") ("net-send-udp" . "net-send-udp") ("net-service" . "net-service") ("net-sessions" . "net-sessions") ("command-event" . "command-event") ("pretty-print" . "pretty-print") ("prompt-event" . "prompt-event") ("read-expr" . "read-expr") ("$" . "systemsymbol") ("callback" . "callback") ("context" . "context") ("copy" . "copy") ("debug" . "debug") ("default" . "default") ("delete" . "delete") ("env" . "env") ("error-event" . "error-event") ("error-number" . "error-number") ("exit" . "exit") ("global" . "global") ("import" . "import") ("main-args" . "main-args") ("new" . "new") ("ostype" . "ostype") ("reset" . "reset") ("set-locale" . "set-locale") ("signal" . "signal") ("sleep" . "sleep") ("symbols" . "symbols") ("sys-error" . "sys-error") ("sys-info" . "sys-info") ("timer" . "timer") ("throw" . "throw") ("throw-error" . "throw-error") ("trace" . "trace") ("trace-highlight" . "trace-highlight") ("cpymem" . "cpymem") ("dump" . "dump"))
-  "newLISP: (シンボル名 . URLリンク名) の連想リスト.")
-
-(defun read-newlisp-symbol ()
-  (assoc (completing-read "newLISP manual: "
-                          #1=*newlisp-manual-link-alist*
-                          :default (newlisp-current-word)
-                          :case-fold t
-                          :must-match t)
-         #1# :test #'string-equal))
-
-(defun newlisp-browse-manual ()
-  (interactive (list (cdr (read-newlisp-symbol))))
-  (shell-execute (concat "http://www.newlisp.org/downloads/newlisp_manual.html#"
-                         str-function)
-                 t))
-
-(export '(*newlisp-manual* newlisp-browse-manual-from-text))
-
-;; 以下のいずれかのHTMLファイルをテキストに変換させたものを用意する必要あり
-;; - "http://www.newlisp.org/downloads/newlisp_manual.html"
-;; - "C:/Program Files/newlisp/newlisp_manual.html"
-;; テキスト化する方法: html2txt, ブラウザの「ページを保存（テキストファイル）」
-;; リファレンスのバージョンによっては使えないかもしれない
-(defvar *newlisp-manual* "newlisp_manual.txt")
-
-(defun newlisp-browse-manual-from-text (str)
-  "テキストマニュアルからリファレンスを参照する."
-  (interactive
-      (list (completing-read "newLISP manual: "
-                             #1=(make-list-from-keyword-table
-                                 ed::*newlisp-keyword-hash-table*)
-                             :default (find (newlisp-current-word) #1# :test #'string=)
-                             :must-match t :case-fold t)))
-  ;; (find-file-other-window *newlisp-manual* nil t)
-  (pop-to-buffer
-   (prog2
-       (find-file-other-window *newlisp-manual* nil t)
-       (find-buffer "newlisp_manual.txt")))
-  (toggle-read-only t)
-  (goto-char (point-min))
-  (scan-buffer (concat (regexp-quote (concat "*syntax: (" str))
-                       "[) ]")
-               :regexp t))
-;; " " を加える意味はあるのか
-(define-key ed::*newlisp-mode-map* '(#\C-c #\h) 'newlisp-browse-manual-from-text)
-
-#|
-;; その１
-(long-operation
-  (with-open-file (stream (merge-pathnames "newlisp_index.html" ed::*newlisp-directory*))
-    (do ((kwd nil)
-         (line #1=(read-line stream nil nil) #1#))
-        ((null line) (nreverse kwd))
-      (and (string-match "<a href=\"newlisp_manual.html#\\(.+\\)\" target=\"body\">\\(.+\\)</a>"
-                         line)
-           (pushnew (cons (ed::protect-match-data
-                            (substitute-string (ed::protect-match-data
-                                                 (substitute-string (match-string 2) "&lt;" "<"))
-                                               "&amp;" "&"))
-                          (match-string 1))
-                    kwd :test #'equal)))))
-
-;; その２
-(save-excursion
-  (set-buffer "newlisp_manual.html")
-  (goto-char (point-min))
-  (let ((lnk nil)
-        (regex (compile-regexp "<a href=\"#\\(.+?\\)\">")))
-    (while (scan-buffer regex :regexp t :no-dup t)
-      (pushnew (match-string 1) lnk :test #'string-equal))
-    (sort lnk #'string<)))
-("GNUFDL" "GNUGPL" "NaNp" "XML" "abort" "abs" "acos" "acosh" "add" "address" "amb" "and" "append" "append-file" "appendix" "apply" "args" "arithmetic" "array" "array-funcs" "array-list" "arrayp" "arrays" "asin" "asinh" "assoc" "atan" "atan2" "atanh" "atomp" "base64-dec" "base64-enc" "bayes-query" "bayes-train" "begin" "beta" "betai" "bind" "binomial" "bit_and" "bit_exclusive" "bit_inclusive" "bit_not" "bit_operators" "bit_shift" "bits" "case" "catch" "ceil" "change-dir" "char" "chop" "cilk" "clean" "close" "cmd_help" "colon" "colon_operator" "command-event" "commas" "cond" "cons" "constant" "context" "context_data" "context_modules" "context_objects" "context_rules" "context_vars" "contextp" "contexts" "copy" "copy-file" "cos" "cosh" "count" "cpymem" "crc32" "crit-chi2" "crit-z" "current-line" "curry" "daemon" "date" "date-value" "debug" "dec" "decimal_point" "def-new" "default" "default_function" "define" "define-macro" "delete" "delete-file" "delete-url" "deprecated" "destroy" "destructice" "destructive" "det" "device" "difference" "direct_exec" "directories_unix" "directories_win32" "directory" "directory_management" "directoryp" "distributed" "div" "dll" "do-until" "do-while" "doargs" "dolist" "dolust" "dostring" "dotimes" "dotree" "dump" "dup" "emptyp" "encrypt" "ends-with" "env" "environment" "erf" "error-event" "error-number" "error-text" "error_codes" "eval" "eval-string" "eval_rules" "example_prodcons" "exec" "exists" "exit" "exp" "expand" "explode" "expressions" "factor" "fft" "file-info" "filep" "filter" "financial" "find" "find-all" "first" "flat" "float" "floating_point" "floatp" "floor" "flow_and_or" "flow_catch_throw" "flt" "fn" "foop" "for" "for-all" "forcing_prompt" "fork" "format" "func_memory" "function_ref" "functions" "functions_alphabetical" "fv" "gammai" "gammaln" "gcd" "get-char" "get-float" "get-int" "get-long" "get-string" "get-url" "global" "globalp" "hash" "http_api" "http_mode" "if" "if-not" "ifft" "implicit_default" "implicit_indexing" "implicit_modify" "implicit_rest_slice" "import" "importing_libraries" "inc" "index" "indexing" "inetd_daemon" "initialization" "input_output" "int" "int_float" "integerp" "internals" "internationalization" "intersect" "introduction" "invert" "irr" "join" "lambda" "lambda-macro" "lambda_expressions" "lambdap" "last" "legalp" "length" "let" "letex" "letn" "linking" "list" "list_processing" "listp" "load" "loading_contexts" "local" "local_domain_server" "log" "logging" "logical" "lookup" "lower-case" "macrop" "main-args" "make-dir" "make_nondestructive" "map" "mat" "match" "matrices" "max" "max_mem" "member" "min" "mod" "montecarlo" "mul" "multi_processing" "multiply" "name" "naming" "net-accept" "net-close" "net-connect" "net-error" "net-eval" "net-interface" "net-listen" "net-local" "net-lookup" "net-peek" "net-peer" "net-ping" "net-receive" "net-receive-from" "net-receive-udp" "net-select" "net-send" "net-send-to" "net-send-udp" "net-service" "net-sessions" "new" "newlisp_classes" "newlisp_objects" "nil_and_true" "nilp" "no_init" "normal" "not" "now" "nper" "npv" "nth" "nullp" "numberp" "open" "options" "or" "ostype" "overwrite" "pack" "parse" "parse-date" "pass_big" "pattern" "peek" "pipe" "pmt" "pop" "pop-assoc" "post-url" "pow" "predicates" "pretty-print" "primitivep" "print" "println" "prob-chi2" "prob-z" "process" "processes" "prompt" "prompt-event" "protectedp" "protection" "push" "put-url" "pv" "quote" "quotep" "rand" "random" "randomize" "read-buffer" "read-char" "read-expr" "read-file" "read-key" "read-line" "real-path" "ref" "ref-all" "reflection" "regex" "regex-comp" "remove-dir" "rename-file" "replace" "reset" "rest" "return" "reverse" "rotate" "round" "save" "scope_context" "scope_global" "scoping" "search" "seed" "seek" "select" "semaphore" "sequence" "sequence_creating" "serializing" "series" "set" "set-locale" "set-ref" "set-ref-all" "setf" "setq" "sgn" "share" "shared-lib" "shell" "signal" "silent" "sin" "sinh" "sleep" "slice" "socket_tcpip" "sort" "source" "spawn" "sqrt" "stack_size" "starts-with" "startup" "string" "string_operators" "stringp" "sub" "swap" "switching" "sym" "symbol_names" "symbolp" "symbols" "sync" "sys-error" "sys-info" "system_functions" "system_symbols" "systemsymbol" "tanh" "tcpip_server" "throw" "throw-error" "time" "time-of-day" "timedate" "timer" "title-case" "trace" "trace-highlight" "transpose" "trim" "truep" "type_ids" "unicode" "unicode_utf8" "unify" "unique" "unless" "unpack" "until" "upper-case" "url_files" "users_manual" "utf8" "utf8_capable" "utf8len" "uuid" "wait-pid" "when" "while" "working_dir" "write-buffer" "write-char" "write-file" "write-line" "xml-error" "xml-parse" "xml-type-tags" "zerop")
-441
-
-;; キーワード用？
-(with-open-file (stream どこか :direction :output)
-  (write (shell-command-to-string "newlisp -n -e \"(dolist (s (symbols)) (println s))\"")
-         :stream stream
-         :escape nil
-         :pretty t)
-  (values t))
-
-|#
-
-(export 'newlisp-show-log-buffer)
 (defun newlisp-show-log-buffer ()
   (interactive)
-  ;; (switch-to-buffer *newlisp-process-buffer-name*)
-  ;; (goto-char (point-max))
-  (display-buffer *newlisp-process-buffer*) )
+  (unless (and *newlisp-process-buffer*
+               (not (deleted-buffer-p *newlisp-process-buffer*)))
+    (error "プロセスが存在しません"))
+  (display-buffer *newlisp-process-buffer*))
 
-;; prompt-debugger-mode
-;; " 0>"
-;; [-> 2 ] s|tep n|ext c|ont q|uit >
-;; (read-char *keyboard*)
-;; newlisp-show-log-buffer
-;; tail-f 使えないのかね
+
+;;; インデント
 
 (defmacro defindent (operator indentation)
   ;; シンボルが参照 (export) できないとインデントが効かないので注意
@@ -450,7 +372,129 @@
 (defindent do-while while)      ; (do-while body)
 (defindent dotree 1)            ; (dotree (sym context [bool]) body)
 
-
+
+;;; リファレンス
+
+(defvar *newlisp-manual-link-alist*
+  '(("!" . "shell")
+    ("+" . "arithmetic")
+    ("-" . "arithmetic")
+    ("*" . "arithmetic")
+    ("/" . "arithmetic")
+    ("%" . "arithmetic")
+    ("<" . "logical")
+    (">" . "logical")
+    ("=" . "logical")
+    ("<=" . "logical")
+    (">=" . "logical")
+    ("!=" . "logical")
+    (":" . "colon")
+    ("setf" . "setf")
+    ("setq" . "setf")
+    ("array?" . "arrayp")
+    ("<<" . "bit_shift")
+    (">>" . "bit_shift")
+    ("&" . "bit_and")
+    ("|" . "bit_inclusive")
+    ("^" . "bit_exclusive")
+    ("~" . "bit_not")
+    ("atom?" . "atomp")
+    ("context?" . "contextp")
+    ("directory?" . "directoryp")
+    ("empty?" . "emptyp")
+    ("file?" . "filep")
+    ("float?" . "floatp")
+    ("global?" . "globalp")
+    ("integer?" . "integerp")
+    ("lambda?" . "lambdap")
+    ("legal?" . "legalp")
+    ("list?" . "listp")
+    ("macro?" . "macrop")
+    ("NaN?" . "NaNp")
+    ("nil?" . "nilp")
+    ("null?" . "nullp")
+    ("number?" . "numberp")
+    ("primitive?" . "primitivep")
+    ("protected?" . "protectedp")
+    ("quote?" . "quotep")
+    ("string?" . "stringp")
+    ("symbol?" . "symbolp")
+    ("true?" . "truep")
+    ("zero?" . "zerop")
+    ("$" . "systemsymbol"))
+  "newLISP: (シンボル名 . URLリンク名) の連想リスト.")
+
+(defun read-newlisp-symbol (prompt)
+  (completing-read "newLISP manual: "
+                   #1=(newlisp-keyword-list)
+                   :default (find (newlisp-current-word) #1# :test #'string=)
+                   :must-match t
+                   :case-fold t))
+
+;; ブラウザから調べる
+(defun newlisp-browse-manual (name)
+  (interactive (list (read-newlisp-symbol "newLISP manual: ")))
+  (shell-execute (concat "http://www.newlisp.org/downloads/newlisp_manual.html#"
+                         (or (cdr (assoc name *newlisp-manual-link-alist*
+                                         :test #'string-equal))
+                             name))
+                 t))
+
+(export '(*newlisp-manual*
+          newlisp-browse-manual-from-text))
+
+;; 以下のいずれかのHTMLファイルをテキストに変換させたものを用意する必要あり
+;; - "http://www.newlisp.org/downloads/newlisp_manual.html"
+;; - "C:/Program Files/newlisp/newlisp_manual.html"
+;; テキスト化する方法: html2txt, ブラウザの「ページを保存（テキストファイル）」
+;; リファレンスのバージョンによっては使えないかもしれない
+;; -> "http://github.com/kosh04/newlisp-files.git/newlisp_manual.txt"
+;;    (上記のファイルをテキストに変換したもの)
+(defvar *newlisp-manual* "newlisp_manual.txt")
+
+;; テキストファイルから調べる
+(defun newlisp-browse-manual-from-text (str)
+  "テキストマニュアルからリファレンスを参照する."
+  (interactive (list (read-newlisp-symbol "newLISP manual: ")))
+  (find-file-other-window *newlisp-manual* nil 'nomsg)
+  #+NIL
+  (pop-to-buffer (prog2
+                     (find-file-other-window *newlisp-manual* nil t)
+                     (find-buffer "newlisp_manual.txt")))
+  (unless (eq buffer-mode 'newlisp-mode)
+    (newlisp-mode))
+  (toggle-read-only t)
+  (goto-char (point-min))
+  ;; (scan-buffer (format nil "^    ~A[ ]?" (regexp-quote str)) :regexp t)
+  ;; (recenter 0)
+  (scan-buffer (format nil "syntax: (~A[ )]" (regexp-quote str)) :regexp t)
+  nil)
+
+(define-key ed::*newlisp-mode-map* '(#\C-c #\h) 'newlisp-browse-manual-from-text)
+
+#|
+;; 作成した後に多少の手直しが必要
+(defun newlisp-make-keyword-file (&optional filename)
+  "newLISPキーワードファイルを作成する."
+  (or filename
+      (setq filename (merge-pathnames "newLISP.kwd" (etc-path))))
+  (with-open-file (out filename
+                       :direction :output
+                       :if-does-not-exist :create
+                       :if-exists :overwrite)
+    (format out ";; keyword file for xyzzy -*- mode:newlisp -*-\n")
+    (write (shell-command-to-string
+            (format nil "newlisp -n -e \"~A\""
+                    '(dolist (s (symbols MAIN)) (println s))))
+           :stream out
+           :escape nil
+           :pretty t))
+  t)
+|#
+
+
+;;; 共有ライブラリ (newlisp.dll)
+
 (export '(newlisp-eval-string))
 
 (c:*define-dll-entry winapi::LPSTR newlispEvalStr (winapi::LPSTR)
@@ -458,9 +502,14 @@
 
 (defun newlisp-eval-string (str)
   (let ((addr (newlispEvalStr (si:make-string-chunk str)))
-        (size 1024))            ; 適当
+        ;; FIXME: 適当すぎる
+        (size #x1000))
     (if (plusp addr)
         (string-right-trim '(#\LFD)
           (si:unpack-string (si:make-chunk nil size nil addr) 0)))))
+
+#|
+(newlisp-eval-string "(+ 3 7)") ;=> "10"
+|#
 
 ;;; newlisp.l ends here
