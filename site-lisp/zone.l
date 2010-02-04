@@ -1,4 +1,9 @@
-;;; zone.el --- idle display hacks
+;;; -*- Mode: Lisp; Package: EDITOR; Encoding: Shift_JIS -*-
+;;;
+;;; zone.l --- idle display hacks
+;;;
+;;; This file is NOT part of xyzzy.
+;;;
 
 ;; Copyright (C) 2000, 2001, 2002, 2003, 2004,
 ;;   2005, 2006, 2007 Free Software Foundation, Inc.
@@ -43,7 +48,7 @@
 #|
 ### これはなに?
 
-emacs の zone.el を xyzzy 用に移植したものです
+emacs の zone.el を xyzzy に移植したものです
 
 ### 遊び方
 
@@ -58,104 +63,119 @@ zone-leave-me-alone - `zone-when-idle' を解除する
 
 ### 仕様、バグ
 
-行番号表示がずれる
-色付けはできない
+- 行番号が元の表示とずれる
+- 文字装飾なし、テキストのみ
+- with-timeout マクロが使えないのでループ内部で時間を計るように変更
+- unread-char などでキー入力が奪われる場合に zone-timer が実行されてしまう
+  (例: isearch-repeat-forward)
+- life-patterns(life.l) が定数のため束縛不可
+- zone-when-idle から起動された zone を解除する際に別の zone が起動する場合がある
+- drip 系 zone が終了しない (わりと深刻)
+- 日本語を含む zone-pgm-whack-chars が重い
+  (恐らく translate-region が原因)
 
 ### Change Log
 
 2010-01-10 移植開始
 2010-01-30 zone-programs が7割くらい動くようになった
 2010-01-31 zone-programs が8割くらい動くようになった
+2010-02-04 zone-programs が8割強動くようになった
 
+;;; by KOBAYASHI Shigeru (kosh)
 |#
 
 ;;; Code:
 
-;;; for xyzzy
+(provide "zone")
 
-(setf (symbol-function 'aset) #'si:*aset)
+(in-package "editor")
+
+(export '(zone
+          zone-when-idle
+          zone-leave-me-alone))
+
+;(export '(zone-timeout))
+
+
+;;;; Emacs Lisp functions for xyzzy
 
 (defun window-start (&optional window)
+  "Return position at which display currently starts in WINDOW."
   (save-window-excursion
     (set-window window)
     (goto-line (get-window-start-line))
     (point)))
 
 (defun window-end (&optional window update)
-  (declare (ignore update))
+  "Return position at which display currently ends in WINDOW."
   (save-window-excursion
     (set-window window)
-    (goto-line (get-window-end-line))
+    (goto-line (if (pos-visible-in-window-p (point-max))
+                   (buffer-lines)
+                 (+ (window-lines) (get-window-start-line)
+                    ;-1
+                    )))
     (point)))
-
-(defun window-point (&optional window)
-  (save-window-excursion
-    (set-window window)
-    (point)))
-
-(setf (symbol-function 'current-buffer) #'selected-buffer)
-
-(defvar-local tab-width *tab-columns*)
-(defvar-local line-spacing nil)
-;(defvar-local buffer-undo-list t)
-;(defvar-local truncate-lines t)
 
 (defmacro with-current-buffer (buffer &rest body)
+  "Execute the forms in BODY with BUFFER temporarily current."
   `(save-excursion
      (set-buffer ,buffer)
      ,@body))
-;(setf (get 'with-current-buffer 'lisp-indent-hook) 0)
+(setf (get 'with-current-buffer 'lisp-indent-hook) 1)
 
-(defun frame-width () (window-width))
+(defun frame-width ()
+  "Return number of columns available for display on frame."
+  (window-width)
+  ;(window-columns)
+  )
 
 (defun input-pending-p ()
   "Return t if command input is currently available with no wait."
   (listen *keyboard*))
 
-(defun discard-input () nil)
-
-;; FIXME
-(defmacro with-timeout (list &rest body)
-  "Run BODY, but if it doesn't finish in SECONDS seconds, give up."
-  (declare (ignore body))
-  `(progn ,@body))
+(defun discard-input ()
+  "Discard the contents of the terminal input buffer."
+  (clear-input *keyboard*))
 
 (defun count-lines (start end)
-  "Return number of lines between START and END.
-This is usually the number of newlines between them,
-but can be one more if START is not equal to END
-and the greater of them is not at the start of a line."
-  (save-excursion
-    (save-restriction
-      (narrow-to-region start end)
-      (goto-char (point-min))
-      (- (buffer-size) (forward-line (buffer-size))))))
+  "Return number of lines between START and END."
+  (let (startl endl result)
+    (save-excursion
+      (goto-char start)
+      (setq startl (current-line-number))
+      (goto-char end)
+      (setq endl (current-line-number)))
+    (setq result (- endl startl))
+    result))
 
 (defun char-width (ch)
-  (char-columns ch))
-
-(defun display-color-p () nil)
+  "Return width of CH when displayed in the current buffer."
+  (case ch
+    (#\TAB *tab-columns*)
+    (#\LFD 0)
+    (otherwise (char-columns ch))))
 
 (defun move-to-column (column &optional force)
+  "Move point to column COLUMN in the current line."
   (let ((n (goto-column column)))
-    (cond (force
-           (insert " " (max (- column n) 0))
-           (current-column))
-          (t n))))
+    (when force
+      (insert " " (max (- column n) 0))))
+  (current-column))
 
-(defun translate-region (start end table)
+(defun translate-region (start end table &aux char)
   "From START to END, translate characters according to TABLE."
   (save-excursion
     (save-restriction
       (narrow-to-region start end)
       (goto-char (point-min))
       (while (not (eobp))
-        (let ((ch (following-char)))
-          (delete-char)
-          (insert (or (ignore-errors
-                       (elt table (char-code ch)))
-                      ch)))
-        (forward-char)))))
+        (setq char (following-char))
+        (delete-char 1)
+        (insert (or (ignore-errors
+                     (elt table (char-code char)))
+                    char))
+        (forward-char 1)))))
 
 
 
@@ -191,41 +211,22 @@ If nil, don't interrupt for about 1^26 seconds.")
     zone-pgm-paragraph-spaz
     zone-pgm-stress
     zone-pgm-stress-destress
-    ;; zone-pgm-random-life
+    zone-pgm-random-life
     ))
 
 (defmacro zone-orig (&rest body)
   `(with-current-buffer (get 'zone 'orig-buffer)
      ,@body))
 
-;; FIXME
 (defmacro zone-hiding-modeline (&rest body)
-  `(let (bg mode-line-fg mode-line-bg mode-line-box)
+  `(let ((#1=#:flag (/= 0 (logand (get-window-flags) *window-flag-mode-line*))))
      (unwind-protect
          (progn
-           (when (and (= 0 (get 'zone 'modeline-hidden-level))
-                      (display-color-p))
-             (setq bg (face-background 'default)
-                   mode-line-box (face-attribute 'mode-line :box)
-                   mode-line-fg (face-attribute 'mode-line :foreground)
-                   mode-line-bg (face-attribute 'mode-line :background))
-             (set-face-attribute 'mode-line nil
-                                 :foreground bg
-                                 :background bg
-                                 :box nil))
-           (setf (get 'zone 'modeline-hidden-level)
-                 (1+ (get 'zone 'modeline-hidden-level)))
+           (toggle-window-flag *window-flag-mode-line* nil t)
            ,@body)
-       (setf (get 'zone 'modeline-hidden-level)
-             (1- (get 'zone 'modeline-hidden-level)))
-       (when (and (> 1 (get 'zone 'modeline-hidden-level))
-                  mode-line-fg)
-         (set-face-attribute 'mode-line nil
-                             :foreground mode-line-fg
-                             :background mode-line-bg
-                             :box mode-line-box)))))
+       (toggle-window-flag *window-flag-mode-line* #1# t))))
 
-(defun zone-call (program &optional timeout)
+(defun zone-call (program &optional (timeout zone-timeout))
   "Call PROGRAM in a zoned way.
 If PROGRAM is a function, call it, interrupting after the amount
  of time in seconds specified by optional arg TIMEOUT, or `zone-timeout'
@@ -233,78 +234,81 @@ If PROGRAM is a function, call it, interrupting after the amount
 PROGRAM can also be a list of elements, which are interpreted like so:
 If the element is a function or a list of a function and a number,
  apply `zone-call' recursively."
-  (cond ((fboundp program)
-         (with-timeout ((or timeout zone-timeout (ash 1 26)))
-           (funcall program)))
-        ((listp program)
-         (mapcar (lambda (elem)
-                   (cond ((functionp elem) (zone-call elem))
-                         ((and (listp elem)
-                               (functionp (car elem))
-                               (numberp (cadr elem)))
-                          (apply 'zone-call elem))
-                         (t (error "bad `zone-call' elem: %S" elem))))
-                 program))))
+  (labels ((zone-function-p (x)
+             (or (functionp x)
+                 (and (symbolp x)
+                      (fboundp x)))))
+    (zone-set-timeout timeout)
+    (cond ((zone-function-p program)
+           (funcall program))
+          ((listp program)
+           (mapcar (lambda (elem)
+                     (cond ((zone-function-p elem)
+                            (zone-call elem nil))
+                           ((and (listp elem)
+                                 (zone-function-p (car elem))
+                                 (numberp (cadr elem)))
+                            (apply 'zone-call elem))
+                           (t (error "bad `zone-call' elem: ~A" elem))))
+                   program)))))
 
-;(defmacro with-zone-window () `())
+(defun zone-sorry ()
+  (start-timer 0.05 (lambda () (message "Zoning...sorry")) t))
 
 ;;;###autoload
-(defun zone ()
+(defun zone (&optional pgm)
   "Zone out, completely."
-  (interactive)
+  (interactive (list (when *prefix-args*
+                       (find (completing-read "Zone program: " zone-programs
+                                              :must-match t)
+                             zone-programs
+                             :test (lambda (x y)
+                                     (equal x (symbol-name y)))))))
+  (unless pgm
+    (setq pgm (elt zone-programs (random (length zone-programs)))))
   (save-window-excursion
     (let ((outbuf (get-buffer-create "*zone*"))
           (text (buffer-substring (window-start) (window-end)))
-          (wp (1+ (- (window-point (selected-window))
-                     (window-start)))))
-      (setf (get 'zone 'orig-buffer) (current-buffer))
-      (setf (get 'zone 'modeline-hidden-level) 0)
+          (flags (get-window-flags))
+          (blink-caret *blink-caret*)
+          (status-bar-format *status-bar-format*))
+      (setf (get 'zone 'orig-buffer) (selected-buffer))
       (switch-to-buffer outbuf)
       (setq mode-name "Zone")
       (erase-buffer (selected-buffer))
       (setup-temp-buffer (selected-buffer))
       (insert text)
       (untabify (point-min) (point-max))
+      (setq *blink-caret* nil)
+      (setq *status-bar-format* (string-trim "cup" *status-bar-format*))
+      ;; suppress window flags
+      (progn
+        (ed::toggle-window-flag *window-flag-vscroll-bar* nil t))
       (sit-for 0 t)
-      (let ((pgm
-             ;; @@
-             (elt zone-programs (random (length zone-programs)))
-             ;; ng: 16:zone-pgm-random-life
-             ;; 'zone-pgm-stress-destress
-             ;; 'zone-pgm-paragraph-spaz
-             )
-            (restore-hook (list
-                           #'(lambda ()
-                               (kill-buffer outbuf)))
-                          ))
-        ;; カーソルを一時的に非表示にする
-        ;; ...
-        ;; Make `restore' a self-disabling one-shot thunk.
-        (push #'(lambda () (setq restore-hook nil)) restore-hook)
-        (handler-case
-            (progn
-              (message "Zoning... (~A)" pgm)
-              (gc 'nomsg)
-              ;; If some input is pending, zone says "sorry", which
-              ;; isn't nice; this might happen e.g. when they invoke the
-              ;; game by clicking the menu bar.  So discard any pending
-              ;; input before zoning out.
-              (if (input-pending-p)
-                  (discard-input))
-              (zone-call pgm)
-              (message "Zoning...sorry"))
-          (error ()
-            (mapc #'funcall restore-hook)
-            (while (not (input-pending-p))
-              (message "We were zoning when we wrote ~A..." pgm)
-              (sit-for 3)
-              (message "...here's hoping we didn't hose your buffer!")
-              (sit-for 3)))
-          (quit ()
-            (mapc #'funcall restore-hook)
-            (ding)
-            (message "Zoning...sorry")))
-        (when restore-hook (mapc #'funcall restore-hook))))))
+      (unwind-protect
+          (handler-case
+              (progn
+                (message "Zoning... (~A)" pgm)
+                (gc 'nomsg)
+                ;; If some input is pending, zone says "sorry", which
+                ;; isn't nice; this might happen e.g. when they invoke the
+                ;; game by clicking the menu bar.  So discard any pending
+                ;; input before zoning out.
+                (if (input-pending-p)
+                    (discard-input))
+                (zone-call pgm))
+            (error ()
+              (while (not (input-pending-p))
+                (message "We were zoning when we wrote ~A..." pgm)
+                (sit-for 3)
+                (message "...here's hoping we didn't hose your buffer!")
+                (sit-for 3))))
+        ;; zoning finish
+        (kill-buffer outbuf)
+        (set-window-flags flags)
+        (setq *blink-caret* blink-caret)
+        (setq *status-bar-format* status-bar-format)
+        (zone-sorry)))))
 
 ;;;; Zone when idle, or not.
 
@@ -326,6 +330,17 @@ If the element is a function or a list of a function and a number,
   (delete-hook '*post-command-hook* 'zone-timer)
   (setq zone-timer nil)
   (message "I won't zone out any more"))
+
+(defvar zone-start-time nil)
+(defun zone-set-timeout (sec)
+  (setq zone-start-time (get-internal-real-time)
+        zone-timeout sec))
+(defun zone-timeout-p ()
+  (and zone-timeout
+       zone-start-time
+       (< zone-timeout
+          (/ (- (get-internal-real-time) zone-start-time) 1000.0))
+       ))
 
 
 ;;;; jittering
@@ -379,7 +394,8 @@ If the element is a function or a list of a function and a number,
                zone-shift-up
                )))
     (goto-char (point-min))
-    (while (not (input-pending-p))
+    (while (and (not (input-pending-p))
+                (not (zone-timeout-p)))
       (funcall (elt ops (random (length ops))))
       (goto-char (point-min))
       (sit-for 0))))
@@ -389,19 +405,19 @@ If the element is a function or a list of a function and a number,
 
 (defun zone-pgm-whack-chars ()
   (let ((tbl (copy-seq (get 'zone-pgm-whack-chars 'wc-tbl))))
-    (while (not (input-pending-p))
+    (while (and (not (input-pending-p))
+                (not (zone-timeout-p)))
       (let ((i 48))
         (while (< i 122)
-          (aset tbl (code-char i) (+ 48 (random (- 123 48))))
-          (setq i (1+ i)))
+          (setf (aref tbl (+ 48 (random (- 123 48)))) (code-char i))
+          (incf i))
         (translate-region (point-min) (point-max) tbl)
         (sit-for 0)))))
 
 (setf (get 'zone-pgm-whack-chars 'wc-tbl)
-      (do ((tbl (make-string 128))
-           (i 0 (1+ i)))
-          ((<= 128 i) tbl)
-        (aset tbl (code-char i) i)))
+      (let ((tbl (make-string 128)))
+        (dotimes (i 128 tbl)
+          (setf (aref tbl i) (code-char i)))))
 
 ;;;; dissolving
 
@@ -461,31 +477,33 @@ If the element is a function or a list of a function and a number,
   (let ((tbl (make-string 128 :initial-element #\x))
         (i 0))
     (while (< i 128)
-      (aset tbl (code-char i) i)
-      (setq i (1+ i)))
-    (while (not (input-pending-p))
+      (setf (aref tbl i) (code-char i))
+      (incf i))
+    (while (and (not (input-pending-p))
+                (not (zone-timeout-p)))
       (setq i #.(char-code #\a))
       (while (<= i #.(char-code #\z))
-        (aset tbl (code-char i)
-              (char-code
-               (if (zerop (random 5))
-                   (char-upcase (code-char i))
-                 (char-downcase (code-char i)))))
+        (setf (aref tbl (char-code
+                         (if (zerop (random 5))
+                             (char-upcase (code-char i))
+                           (char-downcase (code-char i)))))
+              (code-char i))
         (setq i (+ i (1+ (random 5)))))
       (setq i #.(char-code #\A))
       (while (<= i #.(char-code #\Z))
-        (aset tbl (code-char i)
-              (char-code
-               (if (zerop (random 5))
-                   (char-downcase (code-char i))
-                 (char-upcase (code-char i)))))
+        (setf (aref tbl (char-code
+                         (if (zerop (random 5))
+                             (char-downcase (code-char i))
+                           (char-upcase (code-char i)))))
+              (code-char i))
         (setq i (+ i (1+ (random 5)))))
       (translate-region (point-min) (point-max) tbl)
       (sit-for 0))))
 
 (defun zone-pgm-putz-with-case ()
   (goto-char (point-min))
-  (while (not (input-pending-p))
+  (while (and (not (input-pending-p))
+              (not (zone-timeout-p)))
     (let ((np (+ 2 (random 5)))
           (pm (point-max)))
       (while (< np pm)
@@ -534,7 +552,8 @@ If the element is a function or a list of a function and a number,
                    res)))
          (n (length specs))
          amt aamt cut paste txt i ent)
-    (while (not (input-pending-p))
+    (while (and (not (input-pending-p))
+                (not (zone-timeout-p)))
       (setq i 0)
       (while (< i n)
         (setq ent (aref specs i))
@@ -570,54 +589,53 @@ If the element is a function or a list of a function and a number,
 
 (defun zone-replace-char (count del-count char-as-string new-value)
   (delete-char (or del-count (- count)))
-  (aset char-as-string 0 new-value)
+  (setf (aref char-as-string 0) new-value)
   (dotimes (i count) (insert char-as-string)))
 
 (defun zone-park/sit-for (pos seconds)
   (let ((p (point)))
     (goto-char pos)
-    (prog1 (sit-for seconds)
+    (prog1 t
+      (sit-for seconds)
       (goto-char p))))
 
 (defun zone-fret (wbeg pos)
-  (let* ((case-fold-search nil)
-         (c-string (zone-cpos pos))
+  (let* ((c-string (zone-cpos pos))
          (cw-ceil (ceiling (char-width (aref c-string 0))))
          (hmm (cond
                ((string-match "[a-z]" c-string) (string-upcase c-string))
                ((string-match "[A-Z]" c-string) (string-downcase c-string))
-               (t
-                " "
-                ;(propertize " " 'display `(space :width ,cw-ceil))
-                ))))
+               (t (make-string cw-ceil :initial-element #\SPC)))))
     (do ((i 0 (1+ i))
          (wait 0.5 (* wait 0.8)))
         ((= i 20))
       (goto-char pos)
-      (delete-char 1)
-      (insert (if (= 0 (rem i 2)) hmm c-string))
+      (cond ((= 0 (rem i 2))
+             (delete-char 1)
+             (insert hmm))
+            (t
+             (delete-char (length hmm))
+             (insert c-string)))
       (zone-park/sit-for wbeg wait))
-    (delete-char -1) (insert c-string)))
+    (delete-char -1)
+    (insert c-string)))
 
 (defun zone-fill-out-screen (width height)
   (let ((start (window-start))
         (line (make-string width :initial-element #\SPC)))
     (goto-char start)
     ;; fill out rectangular ws block
-    (while (progn (end-of-line)
-		  (let ((cc (current-column)))
-		    (if (< cc width)
-			(insert (substring line cc))
-		      (delete-char (- width cc)))
-		    (cond ((eobp) (insert "\n") nil)
-			  (t (forward-char 1) t)))))
+    (while (progn
+             (end-of-line)
+             (let ((cc (current-column)))
+               (if (< cc width)
+                   (insert (substring line cc))
+                 (delete-char (- width cc)))
+               (cond ((eobp) (insert "\n") nil)
+                     (t (forward-char 1) t)))))
     ;; pad ws past bottom of screen
     (let ((nl (- height (count-lines (point-min) (point)))))
-      (when (> nl 0)
-	(setq line (concat line "\n"))
-	(do ((i 0 (1+ i)))
-	    ((= i nl))
-	  (insert line))))
+      (dotimes (i nl) (insert line "\n")))
     (goto-char start)
     (recenter 0)
     (sit-for 0)))
@@ -632,23 +650,22 @@ If the element is a function or a list of a function and a number,
                    (next-line 1)
                    (and (= col (current-column))
                         (setq newpos (point))
-                        (string= spaces (buffer-substring
-                                         newpos
-                                         (+ newpos cw-ceil)))
+                        (string= spaces (buffer-substring newpos (+ newpos cw-ceil)))
                         (setq newpos (+ newpos (1- cw-ceil)))))
-	     (setq fall-p t)
-	     (delete-char 1)
-	     (insert spaces)
+             (setq fall-p t)
+             (delete-char 1)
+             (insert spaces)
              (goto-char newpos)
-	     (when (< (point) wend)
-	       (delete-char cw-ceil)
-	       (insert c)
-	       (forward-char -1)
-	       (zone-park/sit-for wbeg (setq wait (* wait 0.8))))))
+             (when (< (point) wend)
+               (delete-char cw-ceil)
+               (insert c)
+               (forward-char -1)
+               (zone-park/sit-for wbeg (setq wait (* wait 0.8))))))
     fall-p))
 
 (defun zone-pgm-drip (&optional fret-p pancake-p)
-  (let* ((ww (1- (window-width)))
+  (let* ((ww #+emacs (1- (window-width))
+             #+xyzzy (window-columns))
          (wh (window-height))
          (mc 0)                         ; miss count
          (total (* ww wh))
@@ -658,12 +675,14 @@ If the element is a function or a list of a function and a number,
     (setq wbeg (window-start)
           wend (window-end))
     (catch 'done
-      (while (not (input-pending-p))
+      (while (and (not (input-pending-p))
+                  (not (zone-timeout-p)))
         (setq mc 0 wend (window-end))
         ;; select non-ws character, but don't miss too much
         (goto-char (+ wbeg (random (- wend wbeg))))
         (while (looking-at "[ \n\f]")
-          (if (= total (setq mc (1+ mc)))
+          (do-events)
+          (if (< total (setq mc (1+ mc)))
               (throw 'done 'sel)
             (goto-char (+ wbeg (random (- wend wbeg))))))
         ;; character animation sequence
@@ -675,12 +694,11 @@ If the element is a function or a list of a function and a number,
         ;; assuming current-column has not changed...
         (when (and pancake-p
                    fall-p
-                   (< (count-lines (point-min) (point))
-                      wh))
+                   (< (count-lines (point-min) (point)) wh))
           (let ((cw (ceiling (char-width (aref c 0)))))
-            (zone-replace-char cw   1 c ?@) (zone-park/sit-for wbeg 0.137)
-            (zone-replace-char cw nil c ?*) (zone-park/sit-for wbeg 0.137)
-            (zone-replace-char cw nil c ?_)))))))
+            (zone-replace-char cw   1 c #\@) (zone-park/sit-for wbeg 0.137)
+            (zone-replace-char cw nil c #\*) (zone-park/sit-for wbeg 0.137)
+            (zone-replace-char cw nil c #\_)))))))
 
 (defun zone-pgm-drip-fretfully ()
   (zone-pgm-drip t))
@@ -700,14 +718,18 @@ If the element is a function or a list of a function and a number,
               '(text-mode
                 texinfo-mode
                 fundamental-mode))
+      ;; FIXME
       (let ((fill-column fill-column)
             (fc-min fill-column)
             (fc-max fill-column)
             (max-fc (1- (frame-width))))
         (while (progn
                  (sit-for 0.1)
-                 (not (input-pending-p)))
+                 (and (not (input-pending-p))
+                      (not (zone-timeout-p))) )
           (save-excursion (fill-paragraph))
+          ;(fill-paragraph)
+          ;(backward-paragraph)
           (setq fill-column (+ fill-column (- (random 5) 2)))
           (when (< fill-column fc-min)
             (setq fc-min fill-column))
@@ -724,25 +746,24 @@ If the element is a function or a list of a function and a number,
 
 (defun zone-pgm-stress ()
   (goto-char (point-min))
-  (let (lines)
-    (while (< (point) (point-max))
-      (let ((p (point)))
-        (forward-line 1)
-        (setq lines (cons (buffer-substring p (point)) lines))))
+  (let ((lines (split-string
+                (buffer-substring (point-min) (point-max))
+                "\n")))
     (sit-for 5)
     (zone-hiding-modeline
      (let ((msg "Zoning... (zone-pgm-stress)"))
        (while (not (string= msg ""))
          (message (setq msg (substring msg 1)))
          (sit-for 0.05)))
-     (while (not (input-pending-p))
+     (while (and (not (input-pending-p))
+                 (not (zone-timeout-p)))
        (when (< 50 (random 100))
          (goto-char (point-max))
          (forward-line -1)
          (let ((kill-whole-line t))
            (kill-line))
          (goto-char (point-min))
-         (insert (nth (random (length lines)) lines)))
+         (insert (nth (random (length lines)) lines) "\n"))
        (message (concat (make-string (random (- (frame-width) 5))
                                      :initial-element #\SPC)
                         "grrr"))
@@ -753,17 +774,20 @@ If the element is a function or a list of a function and a number,
   (zone-hiding-modeline
    (sit-for 3 t)
    (erase-buffer (selected-buffer))
-   (sit-for 3 t)
-   (insert-buffer-substring "*Messages*")
-   (message "")
+   (dotimes (i (window-lines))
+     (insert (make-string (random (- (window-columns) 5))
+                          :initial-element #\SPC)
+             "grrr" "\n"))
+   (clear-message)
    (goto-char (point-max))
    (recenter -1)
-   (sit-for 3 t)
+   (sit-for 3)
    (delete-region (point-min) (window-start))
    (message "hey why stress out anyway?")
    (zone-call '((zone-pgm-rotate         30)
                 (zone-pgm-whack-chars    10)
-                zone-pgm-drip))))
+                zone-pgm-drip
+                ))))
 
 
 ;;;; the lyfe so short the craft so long to lerne --chaucer
@@ -774,7 +798,9 @@ If nil, `zone-pgm-random-life' chooses a value from 0-3 (inclusive).")
 
 (defun zone-pgm-random-life ()
   (require 'life)
-  (zone-fill-out-screen (1- (window-width)) (1- (window-height)))
+  (zone-fill-out-screen #+emacs (1- (window-width))
+                        #+xyzzy (window-columns)
+                        (1- (window-height)))
   (let ((top (progn (goto-char (window-start)) (forward-line 7) (point)))
         (bot (progn (goto-char (window-end)) (forward-line -7) (point)))
         (rtc (- (frame-width) 11))
@@ -782,47 +808,61 @@ If nil, `zone-pgm-random-life' chooses a value from 0-3 (inclusive).")
         (max (1- (window-end)))
         s c col)
     (delete-region max (point-max))
-    (while (and (progn (goto-char min) (sit-for 0.05))
+    (while (and (progn (goto-char min) (sit-for 0.05) t)
                 (progn (goto-char (+ min (random max)))
-                       (or (progn (skip-chars-forward " @\n" max)
-                                  (not (= max (point))))
-                           (unless (or (= 0 (skip-chars-backward " @\n" min))
+                       (or (save-restriction
+                             (narrow-to-region (point) max)
+                             (skip-chars-forward " @\n")
+                             (not (= max (point))))
+                           (unless (or (= 0 (save-restriction
+                                              (let ((p (point)))
+                                                (narrow-to-region p min)
+                                                (skip-chars-backward " @\n")
+                                                (- (point) p))))
                                        (= min (point)))
                              (forward-char -1)
-                             t))))
+                             t)))
+                (and (not (input-pending-p))
+                     (not (zone-timeout-p)))
+                )
+      (do-events)
       (unless (or (eolp) (eobp))
         (setq s (zone-cpos (point))
               c (aref s 0))
-        (zone-replace-char
-         (char-width c)
-         1 s (cond ((or (> top (point))
-                        (< bot (point))
-                        (or (> 11 (setq col (current-column)))
-                            (< rtc col)))
-                    32)
-                   ((and (<= ?a c) (>= ?z c)) (+ c (- ?A ?a)))
-                   ((and (<= ?A c) (>= ?Z c)) ?*)
-                   (t ?@)))))
+        (zone-replace-char (char-width c) 1 s
+                           (cond ((or (> top (point))
+                                      (< bot (point))
+                                      (or (> 11 (setq col (current-column)))
+                                          (< rtc col)))
+                                  #\SPC)
+                                 ((char<= #\a c #\z) (char-upcase c))
+                                 ((char<= #\A c #\Z) #\*)
+                                 (t #\@)))))
     (sit-for 3)
     (setq col nil)
     (goto-char bot)
     (while (< top (point))
       (setq c (point))
       (move-to-column 9)
-      (setq col (cons (buffer-substring (point) c) col))
+      (push (buffer-substring (point) c) col)
       (if (previous-line)
           (goto-bol)
         (end-of-line))
       (forward-char -10))
-    (life (or zone-pgm-random-life-wait (random 4)))
-    (kill-buffer nil)))
+    (let ((life-patterns
+           (vector
+            (if (and col (save-restriction
+                           (narrow-to-region (point) max)
+                           (search-forward "@" t)))
+                (cons (make-string (length (car col)) :initial-element #\SPC) col)
+              (list (format "~{~A~^          ~}"
+                            (make-list (/ (- rtc 11) 15) "@@@@@")))))))
+      (unwind-protect
+          (life (or zone-pgm-random-life-wait (random 1.0)))
+        (kill-buffer (selected-buffer))))))
 
 ; init seed
-;(random t)
-(make-random-state t)
+#+emacs (random t)
+#+xyzzy (make-random-state t)
 
-;;;;;;;;;;;;;;;
-(provide 'zone)
-
-;;; arch-tag: 7092503d-74a9-4325-a55c-a026ede58cea
 ;;; zone.el ends here
