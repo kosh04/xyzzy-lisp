@@ -10,16 +10,12 @@
 
 (provide "dbind")
 
-(in-package :lisp)
-
-(defmacro the (type form)
-  (declare (ignore type))
-  form)
+(in-package "lisp")
 
 
 ;;;; $PATH: cmucl/src/code/package.lisp
 
-(defvar *keyword-package* (find-package :keyword))
+(defvar *keyword-package* (find-package "keyword"))
 
 
 ;;;; $PATH: cmucl/src/code/lispinit.lisp
@@ -359,9 +355,9 @@
 		  (push-let-binding var nil nil))))
 	      (t
 	       (error "Non-symbol in lambda-list - ~S." var)))))
-    (push `(unless (list-length-bounded-p (the list ,(if top-level
-							 `(cdr ,arg-list-name)
-							 arg-list-name))
+    (push `(unless (list-length-bounded-p ,(if top-level
+					       `(cdr ,arg-list-name)
+					       arg-list-name)
 		                          ,minimum
 		                          ,@(unless restp
 					       (list maximum)))
@@ -690,3 +686,8 @@
       `(let ((,arg-list-name ,arg-list))
 	 ,@local-decls
 	 ,body))))
+
+
+(in-package "editor")
+
+(setf (get 'destructuring-bind 'ed:lisp-indent-hook) 2)

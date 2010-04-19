@@ -1,4 +1,9 @@
+;;; -*- Mode: Lisp; Package: EDITOR; Encoding: Shift_JIS -*-
+;;;
 ;;; regexp-opt.el --- generate efficient regexps to match strings
+;;;
+;;; This file is NOT part of xyzzy.
+;;;
 
 ;; Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
 ;;   2003, 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
@@ -83,7 +88,8 @@
 ;; into "[ab][ab]" rather than "a[ab]\\|b[ab]".  I'm not sure it's worth
 ;; it but if someone knows how to do it without going through too many
 ;; contortions, I'm all ears.
-
+
+
 ;;; Code:
 
 (in-package "editor")
@@ -294,9 +300,15 @@ This means the number of non-shy regexp grouping constructs
 ;;; Emacs Lisp functions/macros which are not implemented in xyzzy.
 
 ;; (si:*fset 'save-match-data #'ed::protect-match-data)
-(defsetf macro-function si:*fset)
-(setf (macro-function 'save-match-data)
-      (macro-function 'protect-match-data))
+;; (defsetf macro-function si:*fset)
+;; (setf (macro-function 'save-match-data)
+;;       (macro-function 'protect-match-data))
+
+(defmacro save-match-data (&body body)
+  `(let ((#1=#:match-data (match-data)))
+     (unwind-protect
+         (progn ,@body)
+       (store-match-data #1#))))
 
 (setf (symbol-function 'copy-sequence) #'copy-seq)
 
