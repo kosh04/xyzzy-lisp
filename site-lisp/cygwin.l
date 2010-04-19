@@ -5,13 +5,20 @@
 ;;; This file is NOT part of xyzzy.
 
 #|
-使い方
-======
+### 使い方
 
 (require "cygwin")
 ;; 日本語マニュアルを使っている場合
 (setq ed::*cygwin-environment-alist* '(("LANG" . "ja_JP.SJIS")))
 (pushnew "/usr/local/share/man" *manpath* :test #'equal)
+
+### Change Log
+
+2008-10-01 初版
+2009-08-20 less-mode追加
+2009-10-26 save-manual-cache追加
+2010-01-01 色々間違っていたcygpathの修正、manual-listをもう少し効率良く
+
 |#
 
 (provide "cygwin")
