@@ -1,4 +1,4 @@
-;;; -*- Mode: Lisp; Package: User -*-
+;;; -*- Mode: Lisp; Package: User; Encoding: Shift_JIS -*-
 ;;;
 ;;; This file is NOT part of xyzzy.
 ;;;
@@ -19,7 +19,7 @@
   (define-key help-map #\l 'view-lossage)
   (define-key help-map #\v 'describe-variable)
   (define-key help-map #\C-a 'about-dialog)
-  ;+
+
   (define-key help-map #\F1 'show-html-help)
   (define-key help-map #\C-l 'find-library)
   (define-key help-map #\? 'call-help-list))

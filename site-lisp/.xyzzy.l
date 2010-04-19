@@ -263,8 +263,8 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
 
 ;; tips/ファイルの暗号化(Rijndael) より
 ;; http://xyzzy.s53.xrea.com/wiki/index.php?cmd=read&page=tips%2F%A5%D5%A5%A1%A5%A4%A5%EB%A4%CE%B0%C5%B9%E6%B2%BD(Rijndael)
-(defmacro with-temp-file ((temp-file) &body body)
-  `(let ((,temp-file ,(make-temp-file-name)))
+(defmacro with-temp-file ((temp-file &rest args) &body body)
+  `(let ((,temp-file ,(apply #'make-temp-file-name args)))
      (unwind-protect
          (progn ,@body)
        (delete-file ,temp-file :if-does-not-exist :error :if-access-denied :error))))
@@ -288,9 +288,10 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
       (princ line output)
       (unless missing-newline-p (terpri output)))))
 
-(defun cat (file &optional stream)
+(defun cat (file &optional stream (encoding :text))
   "print FILE contents to STREAM (default *standard-output*)."
   (with-open-file (fp file :direction :input)
+    (set-stream-encoding fp encoding)
     (echo fp stream)))
 
 (defun shell-command-to-string (command)
@@ -353,7 +354,8 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
   (add-history filename '*minibuffer-file-name-history*))
 
 (defun pathname-at-point (&optional arg)
-  (let* ((skip-chars "-a-zA-Z0-9_/~.#@%?&=+(),'$!*:")
+  ;; 2010-04-16:fixed:バックスラッシュもスキップする文字に追加
+  (let* ((skip-chars "-a-zA-Z0-9_/~.#@%?&=+(),'$!*:\\")
          (from (save-excursion
                  (skip-chars-backward skip-chars)
                  (point)))
@@ -865,5 +867,26 @@ On nonblank line, delete any immediately following blank lines."
 
 (define-key ed::*lisp-mode-map* '(#\C-c #\C-k) 'xyzzy-lisp-byte-compile-and-load)
 (define-key ed::*lisp-interaction-mode-map* '(#\C-c #\C-k) 'xyzzy-lisp-byte-compile-and-load)
+
+;; or http://blue.ribbon.to/~aotororo/prog/200310.html#d03_t3
+(defun indent-rigidly (from to &optional (arg 1))
+  "リージョンを引数桁だけインデントする"
+  (interactive "*r\np")
+  (or (< from to)
+      (rotatef from to))
+  (save-excursion
+    (goto-char to)
+    (setq to (point-marker))
+    (goto-char from)
+    (or (bolp) (forward-line 1))
+    (while (< (point) (marker-point to))
+      (let ((bol (point))
+            (indent (progn (back-to-indentation) (current-column))))
+        (delete-region bol (point))
+        (or (eolp)
+            (indent-to (max 0 (+ indent arg)))))
+      (forward-line 1))))
+;(global-set-key '(#\C-x #\TAB) 'indent-rigidly)
+
 
 ;;; util.l ends here
