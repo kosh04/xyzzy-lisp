@@ -117,6 +117,10 @@
   (nl::println (apply #'nl::amb '(a b c d e f))))
 |#
 
+(defun seed (state)
+  (check-type state number)
+  (make-random-state state))
+
 (defun lookup (key list &optional index (default nil))
   (let ((result (assoc key list)))
     (or (and result (nth (or index (1- (length result))) result))
@@ -168,6 +172,12 @@
 (defun nl-read-file (filename)
   (with-output-to-string (out)
     (user::cat filename out)))
+#|
+(require "xml-http-request")
+(use-package :xml-http-request)
+(defun get-url (url &optional option timeout header)
+  (xhr-response-text (xhr-get "http://dic.nicovideo.jp/mml/3353")))
+|#
 
 (defmacro dostring ((sym string &optional (test ''nil)) &body body)
   `(do* ((#1=#:charlist ',(coerce string 'list) (cdr #1#))
@@ -210,14 +220,14 @@
 |#
 
 (defun select (seq &rest selection)
-    (map (if (stringp seq) 'string 'list)
-         #'(lambda (x) (elt seq x))
-         (let ((length (length seq)))
-           (mapcar #'(lambda (n)
-                       (if (plusp n) n (mod n length)))
-                   (if (listp (car selection))
-                       (car selection)
-                       selection)))))
+  (map (if (stringp seq) 'string 'list)
+       #'(lambda (x) (elt seq x))
+       (let ((length (length seq)))
+         (mapcar #'(lambda (n)
+                     (if (plusp n) n (mod n length)))
+                 (if (listp (car selection))
+                     (car selection)
+                   selection)))))
 #|
 (nl::select '(a b c d e f g) '(-2 -1 0))   => (f g a)
 (nl::select '(a b c d e f g) '(0 3 2 5 3)) => (a d c f d)
@@ -285,7 +295,8 @@
 #+xyzzy
 (defun sequence (start end &optional (step 1))
   "Generates a sequence of numbers."
-  (setq step (abs step))
+  (check-type step (integer 1 *))
+  ;; (setq step (abs step))
   (let* ((reverse? (> start end))
          (compare-fn (if reverse? #'< #'>))
          (step-fn (if reverse? #'- #'+)))
@@ -314,6 +325,7 @@
                 (format req "User-Agent: xyzzy ~A (Win32)~%" (software-version))
                 (format req "Host: ~A~%" host)
                 (format req "~%")))
+      (while (string/= (read-line s) "") ) ; ignore Headers
       (with-output-to-string (to)
         (user::echo s to)))))
 
@@ -343,5 +355,39 @@
                        :if-exists :overwrite
                        :if-does-not-exist :create)
     (princ str-buffer out)))
+
+(defun explode (sequence &optional (chunk 1) (ignore-short nil))
+  (let ((acc '()) (len (length sequence)))
+    (do ((from 0 idx)
+         (idx chunk (+ idx chunk)))
+        ((< len idx)
+         (when (and (< len idx) (/= from len) (not ignore-short))
+           (push (subseq sequence from len) acc)))
+      (push (subseq sequence from idx) acc))
+    (nreverse acc)))
+#|
+(nl::explode "newLISP")         ;=> ("n" "e" "w" "L" "I" "S" "P")
+(nl::explode "newLISP" 2)       ;=> ("ne" "wL" "IS" "P")
+(nl::explode "newLISP" 3)       ;=> ("new" "LIS" "P")
+;; omit last chunk if too short
+(nl::explode "newLISP" 3 t)     ;=> ("new" "LIS")
+
+;; also works on binary content
+(nl::explode "\000\001\002\003") ;=> (" " "" "" "")
+
+(nl::explode '(a b c d e f g) 2) ;=> ((a b) (c d) (e f) (g))
+
+(nl::transpose (explode '(a b c d e f g h) 2))
+|#
+
+(defun transpose (seq)
+  (apply #'mapcar #'list seq))
+#|
+(nl::transpose '((1 2 3) (4 5 6)))    ;=> ((1 4) (2 5) (3 6))
+(nl::transpose (list (sequence 1 5))) ;=> ((1) (2) (3) (4) (5))
+(nl::transpose '((a b) (c d) (e f)))  ;=> ((a c e) (b d f))
+
+(nl::transpose '((1 2 3) X (7 8 9)))  ;=> ERR 
+|#
 
 ;;; newlispfn.l ends here

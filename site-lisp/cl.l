@@ -1,19 +1,21 @@
-;;; -*- Mode: Lisp; Package: USER; Encoding: Shift_JIS -*-
-
+;;; -*- Mode: Lisp; Package: LISP; Encoding: Shift_JIS -*-
+;;;
 ;;; cl.l --- xyzzy-lispにないCommonLisp関数群
-
-;; This file is NOT part of xyzzy.
+;;;
+;;; This file is NOT part of xyzzy.
+;;;
 
 #|
-TODO:
+### TODO:
 - その他関数などの補完
-- パスネームオブジェクト P"", パスネーム型の定義
+- パスネームオブジェクト P"/usr/bin", パスネーム型の定義
 - assert, symbol-macrolet (cl-macs.el)
 - typecase (encap+.l)
 - ecase (loop/loop.l)
 - disassemble (disassemble.l)
 - fdefinition
 |#
+
 (provide "cl")
 
 (in-package :lisp)
@@ -148,9 +150,13 @@ for the variables specified by this standard are listed in the next figure."
 (defun function-lambda-expression (def)
   "Returns information about function."
   (setq def (coerce def 'function))
-  (values (if (si:*builtin-function-p def)
-              nil
-              (si:closure-body def))))
+  (values
+   (if (si:*builtin-function-p def) ; lambda-expression
+       nil
+       (si:closure-body def))
+   nil				; closure-p
+   nil				; name
+   ))
 
 ;; (char-name)
 (defun name-char (name)
@@ -162,8 +168,10 @@ If such a character does not exist, nil is returned."
         (if lst (ed:unicode-char (cdr lst))))
       (error "argument ~S should be a string, a symbol or a character" name)))
 
-;; なんか違う気がする
-(setf (symbol-function 'ensure-directories-exist) #'create-directory)
+(defun  ensure-directories-exist (path &key verbose)
+  (declare (ignore verbose))
+  (values path
+          (create-directory path :if-exists nil)))
 
 (export '(locally the))
 

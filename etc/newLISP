@@ -1,5 +1,5 @@
 ;; keyword file for xyzzy -*- mode:newlisp -*-
-;; newLISP v.10.1.7 on Win32
+;; newLISP v.10.2.1 on Win32
 !
 !=
 $
@@ -9,6 +9,8 @@ $
 +
 -
 /
+++
+--
 :
 <
 <<
@@ -17,8 +19,6 @@ $
 >
 >=
 >>
-?
-@
 NaN?
 ^
 abort
@@ -119,6 +119,7 @@ exists
 exit
 exp
 expand
+extend
 explode
 factor
 fft
@@ -193,7 +194,7 @@ mod
 module
 mul
 multiply
-name
+;name
 net-accept
 net-close
 net-connect
@@ -234,6 +235,7 @@ pop
 pop-assoc
 post-url
 pow
+prefix
 pretty-print
 primitive?
 print
@@ -251,6 +253,7 @@ quote?
 rand
 random
 randomize
+read
 read-buffer
 read-char
 read-expr
@@ -277,6 +280,7 @@ search
 seed
 seek
 select
+self
 semaphore
 sequence
 series
@@ -311,6 +315,7 @@ sys-error
 sys-info
 tan
 tanh
+term
 throw
 throw-error
 time
@@ -334,6 +339,7 @@ utf8len
 uuid
 when
 while
+write
 write-buffer
 write-char
 write-file

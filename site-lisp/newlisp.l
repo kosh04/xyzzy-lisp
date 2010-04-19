@@ -10,7 +10,14 @@
 #|
 ### これは何？
 
-LISP風軽量スクリプト言語`newLISP'を編集するための簡単なメジャーモードです。
+LISP風軽量スクリプト言語`newLISP'を編集するための簡単なメジャーモードです
+
+今のところ以下の操作が出来ます
+
+* 他のlisp-modeと同様にS式を評価する
+* 作成したスクリプトの実行
+* キーワード補完
+* マニュアルを調べる
 
 ### インストール
 
@@ -38,6 +45,7 @@ LISP風軽量スクリプト言語`newLISP'を編集するための簡単なメジャーモードです。
 2009-08-01 newLISPのバージョンアップに伴うマイナーチェンジ
 2009-12-01 DLLを扱えるように (newlispEvalStr)
 2010-01-21 整理整頓
+2010-04-19 newLISP v10.2.1に対応
 
 |#
 
@@ -63,9 +71,10 @@ LISP風軽量スクリプト言語`newLISP'を編集するための簡単なメジャーモードです。
 (defvar *newlisp-exe* (merge-pathnames "newlisp.exe" *newlisp-directory*))
 (defvar *newlisp-dll* (merge-pathnames "newlisp.dll" *newlisp-directory*))
 
-;; NOTE: -C オプションは出力を促すために必須
+;; *** -C: Force prompt when running newLISP in pipe I/O mode for Emacs.
 (defvar *newlisp-switches* "-C -s10000"
-  "newlisp: コマンドラインオプション")
+  "newLISP: コマンドラインオプション")
+;; -n オプションの有無
 (defvar *newlisp-load-init-p* t
   "起動時に初期化ファイル(init.lsp)を読み込むかどうか.")
 
@@ -183,7 +192,7 @@ LISP風軽量スクリプト言語`newLISP'を編集するための簡単なメジャーモードです。
   (interactive "p")
   (let ((opoint (point)))
     (unwind-protect
-        (newlisp-eval-region (progn (backward-sexp 1 'noerror) (point))
+        (newlisp-eval-region (progn (backward-sexp 1 t) (point))
                              (progn (forward-sexp) (point))
                              stream)
       (goto-char (max (point) opoint)))))
@@ -325,11 +334,10 @@ LISP風軽量スクリプト言語`newLISP'を編集するための簡単なメジャーモードです。
   (run-hooks '*newlisp-mode-hook*))
 
 (defun newlisp-keyword-list ()
-  (prog2
-      (if (null *newlisp-keyword-hash-table*)
-          (setq *newlisp-keyword-hash-table*
-                (load-keyword-file *newlisp-keyword-file*)))
-      (make-list-from-keyword-table *newlisp-keyword-hash-table*)))
+  (if (null *newlisp-keyword-hash-table*)
+      (setq *newlisp-keyword-hash-table*
+            (load-keyword-file *newlisp-keyword-file*)))
+  (make-list-from-keyword-table *newlisp-keyword-hash-table*))
 
 (defun newlisp-current-word ()
   (save-excursion
@@ -467,7 +475,8 @@ LISP風軽量スクリプト言語`newLISP'を編集するための簡単なメジャーモードです。
   (goto-char (point-min))
   ;; (scan-buffer (format nil "^    ~A[ ]?" (regexp-quote str)) :regexp t)
   ;; (recenter 0)
-  (scan-buffer (format nil "syntax: (~A[ )]" (regexp-quote str)) :regexp t)
+  ;; (scan-buffer (format nil "syntax: (~A[ )]" (regexp-quote str)) :regexp t)
+  (scan-buffer (format nil "        syntax: (~A[ )]" (regexp-quote str)) :regexp t)
   nil)
 
 (define-key ed::*newlisp-mode-map* '(#\C-c #\h) 'newlisp-browse-manual-from-text)
