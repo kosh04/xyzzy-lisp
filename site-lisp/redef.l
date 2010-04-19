@@ -40,6 +40,8 @@
   #+case2
   (eq (peek-char nil input-stream nil :eof) :eof))
 
+;; 引数間違い
+(si::defun-builtin char-before (point &optional not-used))
 (si::defun-builtin track-popup-menu (menu &optional any))
 
 ;;; buf-menu.l
@@ -87,6 +89,26 @@
 (setf (get 'ed::*auto-save-session-file* 'message-documentation) "Session auto save")
 (setf (get 'si:*trace-on-error* 'message-documentation) "Trace on error")
 
+;;; buffer.l
+(defun revert-buffer-normal ()
+  (let ((opoint (point)))
+    (or (file-visited-p)
+        (error "ファイル名がありません。"))
+    (when (let ((buffer-read-only nil))
+            (declare (special buffer-read-only))
+            (let* ((filename (get-buffer-file-name))
+                   (nlines (read-file filename)))
+              ;; 変更内容を破棄しない場合
+              (unless nlines
+                (return-from revert-buffer-normal nil))
+              (find-file-lock-file)
+              (find-file-notice filename nlines nil))
+            buffer-read-only)
+      (setq buffer-read-only t))
+    (goto-char opoint)))
+
+(setq-default revert-buffer-function #'revert-buffer-normal)
+
 ;;; misc.l
 (defun toggle-trace-on-error (&optional (arg nil svar))
   (interactive "p")
@@ -104,6 +126,14 @@
 ;; 単に好みの問題
 (defun msgbox (fmt &rest args)
   (message-box (apply #'format nil fmt args)))
+
+(in-package "lisp")
+(defun yes-or-no-p (fmt &rest args)
+  (eq (ed:message-box (apply #'format nil fmt args) nil
+                      ;; ESCが効くように
+                      '(:yes-no-cancel :question :button1))
+      :yes))
+(in-package "editor")
 
 ;;; tags.l
 (defun jump-tag (&optional other-window)
@@ -157,10 +187,9 @@
       (filer-cancel))))         ; ついでに quit
 
 ;; ファイルのマークをバッファのリージョンのように扱ってみる
-#+NIL
 (defun filer-close-modal ()
   (cond ((filer-get-mark-files)
-         ;; (ding)
+         ;(ding)
          (filer-clear-all-marks))
         ((filer-modal-p) (filer-cancel))
         (t (quit))))
@@ -198,14 +227,14 @@
             (mapc #'(lambda (f)
                       (ed::filer-open-in-archive file (nth 3 f)))
                   (cdr (assoc 'list data)))))))))
-
+#+NIL
 (or (fboundp '%filer-get-mark-files)
     (setf (symbol-function '%filer-get-mark-files) #'filer-get-mark-files))
-
+#+NIL
 (defun filer-get-mark-files (&optional file-only-p secondary-window-p)
   (or #1=(%filer-get-mark-files file-only-p secondary-window-p)
       (prog2
-          ;; マークがなければカーソル位置のファイルを対象にしてみる
+          ;; マークがなければカーソル位置のファイルを対象にする
           ;; [共通設定]->[ファイラ]->[なんかする前に必ず確認する]
           ;; のチェックを入れておかないと色々危険かも...
           (filer-mark file-only-p secondary-window-p)
@@ -479,6 +508,35 @@
                                   (recenter -1)))
                               (refresh-screen))))
     buffer))
+
+;;; process.l
+(defun filter-region (command &optional start end)
+  (interactive "*e| \nr" :history0 'execute)
+  (let (infile outfile encoding)
+    (when (and start end)
+      (setq infile (make-temp-file-name))
+      (write-region start end infile))
+    (setq outfile (make-temp-file-name))
+    (setq encoding (buffer-fileio-encoding))
+    (unwind-protect
+	(prog1
+	    (multiple-value-bind (cmdline dir)
+                (ed::shell-command-line command (default-directory))
+	      (call-process cmdline
+			    :input infile
+			    :output outfile
+			    :exec-directory dir
+			    :show :minimize
+			    :wait t))
+	  (when (and start end)
+            (delete-region start end))
+          ;; 元のバッファと同じエンコーディングを指定
+          (let ((*expected-fileio-encoding* encoding))
+            (declare (special *expected-fileio-encoding*))
+            (insert-file-contents outfile)))
+      (when infile
+	(delete-file infile))
+      (delete-file outfile))))
 
 
 (in-package "lisp")
