@@ -1,24 +1,53 @@
 ;;; -*- Mode: Lisp; Package: EDITOR; Encoding: Shift_JIS -*-
 ;;;
-;;; cygwin.l --- xyzzyからcygwinのコマンドを扱う (作りかけ)
+;;; cygwin.l --- cygwinのコマンド群を扱うパッケージ
 ;;;
 ;;; This file is NOT part of xyzzy.
+;;;
 
 #|
-### 使い方
+### これはなに？
+
+xyzzyからcygwinのコマンドを扱う際に便利そうな関数を集めたものです。
+今のところmanページを表示するくらいしかできません…
+
+### インストール
 
 (require "cygwin")
 ;; 日本語マニュアルを使っている場合
 (setq ed::*cygwin-environment-alist* '(("LANG" . "ja_JP.SJIS")))
 (pushnew "/usr/local/share/man" *manpath* :test #'equal)
 
-### Change Log
+### マニュアル
+
+- Function: run-cygwin-console (&optional login)
+
+  別ウィンドウでコンソールを起動します。
+  引数を与えるとログインした状態でコンソールを起動します。
+
+- Function: shell-on-cygwin ()
+
+  xyzzyのバッファからシェルを操作します。あまり使っていません:-P
+
+- Function: less-mode (&optional (arg nil sv))
+
+  lessのキーバインドを真似るマイナーモードです。"q"で終了します。
+
+- Function: man (str &optional section)
+
+  manページを表示します。SECTIONはmanのセクション番号(1-9)を指定します。
+
+### ChangeLog
 
 2008-10-01 初版
 2009-08-20 less-mode追加
 2009-10-26 save-manual-cache追加
 2010-01-01 色々間違っていたcygpathの修正、manual-listをもう少し効率良く
+2010-07-02 manプロセス実行中にカーソルがミニバッファにあるとマズかったので修正
+2010-07-16 manの履歴を保存できるようにした
+           read-manual-entryの大文字小文字の区別をちょっとだけ賢く
 
+;;; by KOBAYASHI Shigeru (kosh)  <shigeru.kb[at]gmail.com>
 |#
 
 (provide "cygwin")
@@ -30,6 +59,7 @@
 
 (defvar *cygwin-root* "C:/cygwin/"
   "cygwinのルートディレクトリ")
+(defvar *cygwin-shell* "/bin/bash")
 
 (defvar *cygwin-environment-alist* '(("LANG" . "C"))
   "cygwinを起動する際に用いる環境変数")
@@ -42,8 +72,8 @@
   (interactive "P")
   (if login
       (launch-application "cmd /c env CHERE_INVOKING=yes bash --login -i")
-      (launch-application (format nil "~A -i"
-                                  (cygpath "/bin/bash" :type :windows)))))
+    (launch-application (format nil "~A -i"
+                                (cygpath *cygwin-shell* :type :windows)))))
 
 (defun shell-on-cygwin ()
   "xyzzy のバッファから bash を操作します。"
@@ -114,10 +144,10 @@
   (interactive "p")
   (toggle-mode 'less-mode arg sv)
   (cond (less-mode
-         ;(add-hook '*post-command-hook* 'less-message)
+         ;; (add-hook '*post-command-hook* 'less-message)
 	 (set-minor-mode-map *less-mode-map*))
 	(t
-         ;(delete-hook '*post-command-hook* 'less-message)
+         ;; (delete-hook '*post-command-hook* 'less-message)
 	 (unset-minor-mode-map *less-mode-map*)))
   (toggle-read-only less-mode)
   (update-mode-line t))
@@ -125,15 +155,14 @@
 (defvar *less-mode-map* nil)
 (unless *less-mode-map*
   (setf *less-mode-map* (make-sparse-keymap))
-  (mapc (lambda (x)
-          (let ((keys (mapcar #'(lambda (str) (coerce str 'list))
-                              (car x)))
-                (command (cdr x)))
-            (mapc (lambda (key)
-		    (define-key *less-mode-map* key command))
-                  keys)))
-        ;; キーマップの詳細はlessのヘルプ参照
-        '(
+  (mapc #'(lambda (x)
+            (let ((keys (mapcar #'(lambda (str)
+                                    (coerce str 'list))
+                                (car x)))
+                  (command (cdr x)))
+              (dolist (key keys)
+                (define-key *less-mode-map* key command))))
+        '(;; キーマップの詳細はlessのヘルプ参照
 	  (("h" "H") . undefined) ; help
           (("q" ":q" "Q" "ZZ") . less-quit)
           (("e" "\x05" "j" "\x0e" "\x0d") . less-scroll-down) ; ^E ^N ^M
@@ -164,14 +193,15 @@
           ;; (("ESC-N") . undefined)
           ;; (("ESC-u"). undefined)
           (("g" "<" "\X803c") . beginning-of-buffer) ; ESC-<
-          (("G" ">" "\X803e") . end-of-buffer) ; ESC->
+          (("G" ">" "\X803e") . end-of-buffer)       ; ESC->
           (("p" "%") . less-goto-page)
           (("{" "(" "[" "}" ")" "]") . goto-matched-parenthesis)
           ;; (("ESC-^F <c1> <c2>") . undefined)
           ;; (("ESC--B <c1> <c2>") . undefined)
           ;; (("m") . less-mark-line)
           ;; (("'" "\x18\x18") . less-goto-mark) ; ^X^X
-          ;; (("=" "\x07" ":f") . undefined) ; 表示中のファイル名(と文字コード)を表示する.
+          ;; (("=" "\x07" ":f") . undefined) ; 表示中のファイル名(と文字コード)を表示する
+          (("!") . execute-subprocess)
           ;; (("@") . change-fileio-encoding)
           (("v") . less-quit)   ; バッファを編集する
           (("1" "2" "3" "4" "5" "6" "7" "8" "9" "0") . digit-argument)))
@@ -205,11 +235,21 @@
 ;; * manual-mode (view-mode, less-mode)
 ;; (set-text-attribute FROM TO TAG :bold t :underline t)
 
-;; '(1.ユーザ用コマンド 2.システムコール 3.ライブラリ関数 4.デバイスファイル
-;;   5.各種設定ファイル 6.ゲームプログラム 7.習慣等の説明 8.管理者用コマンド)
+;; セクション一覧
+;; ==============
+;; 1. ユーザ用コマンド
+;; 2. システムコール
+;; 3. ライブラリ関数
+;; 4. デバイスファイル (/dev)
+;; 5. ファイルフォーマット、各種設定ファイル (eg /etc/passwd)
+;; 6. ゲーム
+;; 7. その他、習慣等の説明
+;; 8. 管理者用コマンド
+;; 9. カーネルルーチン [Non standard]
 
-;; Known bugs:
-;; - 元の表示とは違う位置で改行が入る
+;; Known bugs
+;; ==========
+;; - 元の表示とは違う位置で改行が入る(再現性はあるっぽい)
 
 (export '(manual-entry
           man
@@ -224,12 +264,18 @@
   "manを参照するためのトピックリストを保存するファイル名.")
 (defvar *manual-list* nil)
 
+;; ヒストリ
+(define-history-variable *manual-name-history* nil)
+(setf (get ':manual-name 'minibuffer-history-variable) '*manual-name-history*)
+;; ヒストリ削除
+;; (unregister-history-variable 'ed::*manual-name-history*)
+
 ;; FIXME: 色付けは未実装
 ;; 制御文字を取り除いてテキスト表示するのみ
 ;; 取り除くべき制御文字に「改行文字」も含まれている気がする
 ;; http://www.isthe.com/chongo/tech/comp/ansi_escapes.html
 (defun manpage-fontify-buffer ()
-  (interactive)
+  (interactive "*")
   (labels ((trim-buffer (regexp)
              (save-excursion
                (goto-char (point-min))
@@ -254,13 +300,18 @@
                                      (cygpath "/bin/man" :type :windows)
                                      str)
                              :output tmpbuf
-                             :environ *cygwin-environment-alist*)))
+                             :environ (cons (cons "MANPATH"
+                                                  (format nil "~{~A~^:~}" *manpath*))
+                                            *cygwin-environment-alist*)
+                             )))
     (set-process-incode proc *encoding-euc-jp*)
+    (set-process-eol-code proc *eol-lf*)
     (set-process-filter proc
                         #'(lambda (process str)
                             (save-excursion
-                              (set-buffer tmpbuf)
-                              (insert str "\n"))))
+                              (with-set-buffer
+                                (set-buffer tmpbuf)
+                                (insert str "\n")))))
     (set-process-sentinel
      proc
      ;; この関数内でエラーを投げると正常に機能しない？
@@ -270,23 +321,30 @@
              ;; `man -k STRING` も返り値１になるようだが使わないので無視する
              (cond ((/= 0 (process-exit-code process))
                     (save-excursion
-                      (set-buffer tmpbuf)
-                      (goto-char (point-min))
-                      ;; "No manual entry for STRING"
-                      ;; "No entry for STRING in section N of the manual"
-                      (let ((msg (and (scan-buffer
-                                       (compile-regexp
-                                        "^No \\(manual \\)?entry for .*$"))
-                                      (match-string 0))))
-                        (progn (ding) (message "~A" msg))
-                        (error "~A" msg))))
+                      (with-set-buffer
+                        (set-buffer tmpbuf)
+                        (goto-char (point-min))
+                        ;; "No manual entry for STRING"
+                        ;; "No entry for STRING in section N of the manual"
+                        (let ((msg (and (scan-buffer
+                                         (compile-regexp
+                                          "^No \\(manual \\)?entry for .*$"))
+                                        (match-string 0))))
+                          (progn (ding) (message "~A" msg))
+                          (error "~A" msg)))))
                    (:else
                     (with-output-to-temp-buffer ((format nil "*Man ~A*" str) t)
+                      (progn
+                        ;; [euc-jp:lf]
+                        (set-buffer-fileio-encoding *encoding-euc-jp*)
+                        (change-eol-code *eol-lf*))
                       (insert-buffer tmpbuf)
                       (manpage-fontify-buffer)
                       (toggle-read-only t)
                       ; (less-mode t)
-                      (message "~A man page formatted" str))))
+                      ; (set-default-directory (selected-buffer))
+                      (message "~A man page formatted" str)
+                      )))
            (progn
              (or (deleted-buffer-p tmpbuf)
                  (delete-buffer tmpbuf))
@@ -326,8 +384,8 @@
               (toggle-read-only t)))
         (delete-file tempfile)))))
 
-(defun manual-list (&optional force-update nomsg)
-  (when (or (null *manual-list*) force-update)
+(defun manual-list (&optional re-cache nomsg)
+  (when (or (null *manual-list*) re-cache)
     (long-operation
       (unless nomsg (message "Making manual list..."))
       (dolist (dir (mapcar #'(lambda (path)
@@ -341,8 +399,9 @@
       (unless nomsg (message "Making manul list..done"))))
   *manual-list*)
 
-(export '(update-manual-list))
-(defun update-manual-list ()
+;; cygwinパッケージを更新したらマニュアルも更新
+(export '(manual-list-update))
+(defun manual-list-update ()
   (interactive)
   (manual-list t))
 
@@ -351,11 +410,16 @@
 ;; woman-topic-all-completions
 ;; woman-file-name-all-completions
 (defun read-manual-entry (prompt &key default)
-  (completing-read prompt
-                   (manual-list)
-                   :case-fold t
-                   :default default
-                   :must-match nil))
+  (labels ((fixed-case (str)
+             (or (find str (manual-list) :test #'string=)
+                 (find str (manual-list) :test #'string-equal))))
+    (fixed-case
+     (completing-read prompt
+                      (manual-list)
+                      :case-fold t
+                      :default default
+                      :history :manual-name
+                      :must-match t))))
 
 (defun save-manual-cache (filename)
   (with-open-file (outfile filename
@@ -364,7 +428,7 @@
                            :if-does-not-exist :create)
     (princ (concat
             ";;; Cygwin manual list. -*- mode:lisp -*-\n"
-            ";;; This file is generate automatically. do not edit.\n")
+            ";;; This file is generate automatically. do not edit!\n")
            outfile)
     (print `(in-package "editor") outfile)
     (terpri outfile)
@@ -388,8 +452,8 @@
       (list (read-exist-file-name "Manual file: "
                                   :default (get-buffer-file-name)
                                   :title "マニュアルファイル")))
-  ;; man の引き数 name にスラッシュ (/) がある場合は、
-  ;; man はファイルの指定であると解釈して、検索を行わない。
+  ;; man の引き数 name にスラッシュ (/) がある場合、
+  ;; man はファイルの指定であると解釈して検索を行わない
   (man (cygpath file :type :unix)))
 
 ;;; cygwin.l ends here.
