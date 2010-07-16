@@ -135,6 +135,7 @@ float?
 floor
 flt
 fn
+fn-macro
 for
 for-all
 format

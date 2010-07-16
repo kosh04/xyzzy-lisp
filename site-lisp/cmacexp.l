@@ -112,10 +112,10 @@ Cプリプロセッサを利用してプログラムの指定した範囲のマクロを展開
 
 ### 使い方
 
-FUNCTION (c-macro-expand-region start end &optional subst)
+- FUNCTION c-macro-expand-region (start end &optional subst)
 
   指定した範囲のマクロを展開して別ウィンドウに表示します。[C-c C-e]
-  前置引数(C-u)を付けると指定した範囲をマクロ展開したものと交換します。
+  前置引数(C-u)を付けると指定した範囲をマクロ展開したものに置換します。
   
 ### Known Bugs
 
@@ -128,7 +128,7 @@ FUNCTION (c-macro-expand-region start end &optional subst)
 2010-02-08 移植開始
 2010-04-19 見た目かなり別物になったが、それなりに動くようになった
 
-;;; by KOBAYASHI Sigeru (kosh)
+;;; by KOBAYASHI Sigeru (kosh) <shigeru.kb@gmail.com>
 |#
 
 ;;; Code:

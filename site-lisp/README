@@ -4,14 +4,15 @@
 * corman_search.l  - CommonLispのみで文字列検索
   ただし正規表現が使えるed:string-matchの方が明らかに便利
 * dbind.l          - destructuring-bindが使えるように
-  lisp/condition.l に若干修正が必要 (see lisp/condition.diff)
+  lisp/condition.l に若干修正が必要 
+  (See lisp/condition.diff <../lisp/condition.diff>)
   g000001さん移植のdestructuring-bind.lとほぼ同じ機能です <http://bit.ly/9SgwyN>
   違うのはマクロ展開時のS式くらい
 
 ## Emacsから移植したもの
 
 * animate.l     - 文字列をアニメーション表示する
-* cmacroexp.l   - Cプログラムのマクロ定義を展開する
+* cmacexp.l   - Cプログラムのマクロ定義を展開する
 * regexp-opt.l  - 正規表現生成支援ツール
 * zone.l        - ジョークプログラム
 
@@ -30,6 +31,7 @@
   - ../etc/magic1.dll
   - ../etc/regex2.dll
 * emacs-help.l  - [F1]をヘルプキーとして扱う
+* emacs-fn.l    - 自前のElisp関数、コマンド
 * .xyzzy.l      - その他小物
 
 ■GitHubのWebページの指定文字コード(utf8)と各ファイルの文字コード(sjis)が異

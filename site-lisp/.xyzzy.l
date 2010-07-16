@@ -190,34 +190,6 @@
        (use-syntax-table #1#))))
 (setf (get 'with-syntax-table 'ed:lisp-indent-hook) 1)
 
-;; $EMACS/lisp/comint.el
-;; (point) が EOF ならプロセス終了
-(defun comit-delchar-or-maybe-eof (&optional arg)
-  "Delete ARG characters forward or send an EOF to subprocess.
-Sends an EOF only if point is at the end of the buffer and there is no input."
-  (interactive "p")
-  (let ((proc (buffer-process (selected-buffer))))
-    (if (and (eobp)
-             proc
-             (eq (process-status proc) :run)
-             (eql (point) (marker-point (process-marker proc))))
-        (kill-process proc)
-        ;; (process-send-string proc (concat "exit" *shell-ret*))
-      (delete-char arg))))
-(define-key *shell-mode-map* #\C-d 'comit-delchar-or-maybe-eof)
-
-;; slime-repl-bolより
-(defun ed::shell-goto-bol ()
-  (interactive)
-  (let ((point-at-bol (save-excursion (goto-bol) (point)))
-        (marker (ignore-errors
-                 (marker-point
-                  (process-marker (buffer-process (selected-buffer)))))))
-    (if (and marker (<= point-at-bol marker (point)))
-        (goto-char marker)
-        (goto-bol))))
-(define-key ed::*shell-mode-map* #\C-a 'ed::shell-goto-bol)
-
 (defun shell-next-prompt (&optional (n 1))
   (interactive "p")
   (cond ((plusp n)
@@ -234,13 +206,13 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
 (define-key ed::*shell-mode-map* '(#\C-c #\C-p) 'shell-previous-prompt)
 (define-key ed::*shell-mode-map* '(#\C-c #\C-n) 'shell-next-prompt)
 
-(global-set-key '(#\C-c #\s)
-                (defun shell-popup ()
-                  (interactive)
-                  (let ((shell-buffer
-                         (save-window-excursion (shell) (selected-buffer))))
-                    (unless (eq shell-buffer (selected-buffer))
-                      (pop-to-buffer shell-buffer t)))))
+(defun shell-other-window ()
+  (interactive)
+  (let ((shell-buffer
+         (save-window-excursion (shell) (selected-buffer))))
+    (or (eq shell-buffer (selected-buffer))
+        (switch-to-buffer-other-window shell-buffer))))
+(global-set-key '(#\C-c #\s) 'shell-other-window)
 
 (defun narrow-to-defun ()
   "Make text outside current defun invisible."
@@ -434,7 +406,8 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
 ;; arglist
 (defun show-arglist (symbol)
   (interactive "SArglist: ")
-  (message "(~A ~{~A~^ ~})" symbol (arglist symbol)))
+  (when (fboundp symbol)
+    (message "(~A ~{~A~^ ~})" symbol (arglist symbol))))
 
 (defun arglist (x)
   "Return function argment list."
@@ -456,8 +429,8 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
                       (and (fboundp sym)
                            (si:*builtin-function-p (symbol-function sym))
                            sym))
+                    ;; #'subr-name (Emacs)
                     (builtin-function-name (f)
-                      ;; #'subr-name (Emacs)
                       (when (string-match "#<function: \\(.+\\)>"
                                           (princ-to-string f))
                         (match-string 1))))
@@ -644,7 +617,7 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
 (defun point-of (fn &rest args)
   "関数FNを呼び出した後のポイント位置を返す."
   (save-excursion (apply fn args) (point)))
-;; (point-of #'goto-eol)
+;; (point-of #'goto-bol)
 
 (defun map-internal-to-binary (input-string-or-stream &optional output-stream)
   (convert-encoding-to-internal *encoding-binary*
@@ -673,45 +646,6 @@ Sends an EOF only if point is at the end of the buffer and there is no input."
     (goto-char (min from to))
     (narrow-to-region from to)
     (query-replace "/" "\\" 'noerror)))
-
-;; $EMACS/lisp/simple.el
-(defun emacs-delete-blank-lines ()
-  "On blank line, delete all surrounding blank lines, leaving just one.
-On isolated blank line, delete that one.
-On nonblank line, delete any immediately following blank lines."
-  (interactive "*")
-  (let* ((thisblank (save-excursion
-                      (beginning-of-line)
-                      (looking-at "[ \t]*$")))
-         ;; Set singleblank if there is just one blank line here.
-         (singleblank (and thisblank
-                           (not (looking-at "[ \t]*\n[ \t]*$"))
-                           (or (bobp)
-                               (progn
-                                 (forward-line -1)
-                                 (not (looking-at "[ \t]*$")))))))
-    (when thisblank
-      (beginning-of-line)
-      (if singleblank (forward-line 1))
-      (delete-region (point)
-                     (if (re-search-backward "[^ \t\n]" 'noerror)
-                         (progn (forward-line 1) (point))
-                         (point-min))))
-    ;; Delete following blank lines, unless the current line is blank
-    ;; and there are no following blank lines.
-    (unless (and thisblank singleblank)
-      (save-excursion
-        (end-of-line)
-        (forward-line 1)
-        (delete-region (point)
-                       (if (re-search-forward "[^ \t\n]" 'noerror)
-                           (progn (beginning-of-line) (point))
-                           (point-max)))))
-    ;; Handle the special case where point is followed by newline and eob.
-    ;; Delete the line, leaving point at eob.
-    (if (looking-at "^[ \t]*\n\\'")
-        (delete-region (point) (point-max)))))
-(global-set-key '(#\C-x #\C-o) 'emacs-delete-blank-lines)
 
 (defun indent-line-sexp ()
   "長い一行S式をそれなりにインデントします."
@@ -765,6 +699,8 @@ On nonblank line, delete any immediately following blank lines."
   "NAMEに対応する文字コードオブジェクトを返します."
   (gethash name *mime-charset-name-hash-table*))
 
+(require "emacs-fn")
+
 ;; ヘルプをもう少し便利に
 (require "emacs-help")
 (require "info-modoki-mode")
@@ -796,18 +732,16 @@ On nonblank line, delete any immediately following blank lines."
       (write-file (merge-pathnames ".scratch.l" (si:system-root)) 'nomsg))))
 (add-hook '*kill-xyzzy-hook* 'save-scratch-buffer)
 
-(defun toggle-scratch-buffer (&optional popup)
+(defun toggle-scratch-buffer (&optional other-window)
   (interactive "P")
-  (labels ((window-buffer-list ()
+  (labels ((window-list ()
              (mapcar #'second (third (current-window-configuration)))))
-    (let ((new-buffer-p (not (find-buffer #1="*scratch*")))
-          (scratch (get-buffer-create #1#)))
-      (if (or popup (find scratch (window-buffer-list)))
-          (pop-to-buffer scratch t)
-        (set-buffer scratch))
-      (when (or (not (eq buffer-mode #2=*initial-buffer-mode*))
-                new-buffer-p)
-        (funcall #2#))))
+    (let ((scratch (get-buffer-create "*scratch*")))
+      (if (or other-window (find scratch (window-list)))
+          (pop-to-buffer scratch)
+        (switch-to-buffer scratch))
+      (or (eq buffer-mode *initial-buffer-mode*)
+          (funcall *initial-buffer-mode*))))
   t)
 (global-set-key '(#\C-x #\t #\s) 'toggle-scratch-buffer)
 
@@ -816,28 +750,13 @@ On nonblank line, delete any immediately following blank lines."
 ;; (setq ed::*cygwin-environment-alist* '(("LANG" . "C")))
 ;(global-set-key '(#\C-x #\r #\c) 'run-cygwin-console)
 (pushnew "/usr/local/share/man" *manpath* :test #'equal)
+(setf (symbol-function 'bash) #'run-cygwin-console)
 
 (defun tail-f-console (filename)
   (interactive "ftail-f: " :title0 "tail-f")
   (launch-application (format nil "\"~A\" ~A"
                               (merge-pathnames "tail-f.exe" (etc-path))
                               filename)))
-
-;; http://calypso.tux.org/pipermail/xemacs-beta/2009-January/015729.html
-(defun check-parens ()
-  "バッファの括弧の釣り合いを調べる."
-  (interactive)
-  (handler-case
-      (let ((home (point)))
-        (goto-char (point-min))
-        (while (forward-list))
-        (goto-char home)
-        (message "だいたいあってる")
-        t)
-    (simple-error (c)
-      (message! "このへん間違ってるかも")
-      nil)))
-;; (compile 'check-parens)
 
 (defun _just-one-space ()
   (interactive "*")
@@ -847,46 +766,13 @@ On nonblank line, delete any immediately following blank lines."
   (insert #\SPC))
 (setf (symbol-function 'just-one-space) #'_just-one-space)
 
-;; $EMACS/lisp-mode.el
-(defun xyzzy-lisp-byte-compile-and-load (&optional force-compile)
-  "Byte-compile the current file (if it has changed), then load compiled code."
-  (interactive "P")
-  (or (file-visited-p)
-      (error "The buffer must be saved in a file first"))
-  ;; Recompile if file or buffer has changed since last compilation.
-  (if (and (buffer-modified-p)
-           (y-or-n-p "Save buffer ~A first? " (get-buffer-file-name)))
-      (save-buffer))
-  (let* ((buffer-file-name (get-buffer-file-name))
-         (compiled-file-name (compile-file-pathname buffer-file-name)))
-    (if (and (file-newer-than-file-p compiled-file-name buffer-file-name)
-             (not force-compile))
-	(load-file compiled-file-name)
-      (and (byte-compile-file buffer-file-name)
-           (load compiled-file-name)))))
+(defun sha1-file (pathspec)
+  (with-open-file (s pathspec :encoding :binary)
+    (si:sha-1 s)))
+;; (setf (symbol-function 'sha-1-file) #'sha1-file)
 
-(define-key ed::*lisp-mode-map* '(#\C-c #\C-k) 'xyzzy-lisp-byte-compile-and-load)
-(define-key ed::*lisp-interaction-mode-map* '(#\C-c #\C-k) 'xyzzy-lisp-byte-compile-and-load)
-
-;; or http://blue.ribbon.to/~aotororo/prog/200310.html#d03_t3
-(defun indent-rigidly (from to &optional (arg 1))
-  "リージョンを引数桁だけインデントする"
-  (interactive "*r\np")
-  (or (< from to)
-      (rotatef from to))
-  (save-excursion
-    (goto-char to)
-    (setq to (point-marker))
-    (goto-char from)
-    (or (bolp) (forward-line 1))
-    (while (< (point) (marker-point to))
-      (let ((bol (point))
-            (indent (progn (back-to-indentation) (current-column))))
-        (delete-region bol (point))
-        (or (eolp)
-            (indent-to (max 0 (+ indent arg)))))
-      (forward-line 1))))
-;(global-set-key '(#\C-x #\TAB) 'indent-rigidly)
-
+(defun md5-file (pathspec)
+  (with-open-file (s pathspec :encoding :binary)
+    (si:md5 s)))
 
 ;;; util.l ends here

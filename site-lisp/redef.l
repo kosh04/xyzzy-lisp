@@ -53,7 +53,7 @@
 ;; 大文字小文字を区別しないバッファ選択
 (defun visible-buffer-list ()
   (remove-if #'(lambda (buf)
-                 (find #\SPC buf :end 1))
+                 (string= " " buf :end2 1))
              (mapcar #'buffer-name (buffer-list))))
 (defun emacs-interactive-buffer-name (prompt default &rest rest)
   (ed::emacs-read-buffer-name prompt (or default (selected-buffer))
@@ -108,6 +108,15 @@
     (goto-char opoint)))
 
 (setq-default revert-buffer-function #'revert-buffer-normal)
+
+(defun not-modified (&optional arg)
+  (interactive "P")
+  (set-buffer-modified-p arg)
+  (when (and (interactive-p)
+             (null *executing-macro*))
+    (if arg
+        (message "変更フラグをセットしました")
+      (message "変更フラグをクリアしました"))))
 
 ;;; misc.l
 (defun toggle-trace-on-error (&optional (arg nil svar))
@@ -449,7 +458,7 @@
     (eval-region-print stream
                        (if (null stream)
                            (message "~{~S~^ ; ~}" result) ; 多値なら一行表示
-                           (format t "~{~S~%~}" result)))
+                         (format t "~{~S~%~}" result)))
     (values-list result)))
 
 ;;; files.l
@@ -464,6 +473,28 @@
                                    (cdr x)))
                           *auto-mode-alist*)
                     *default-buffer-mode*))))
+
+;; http://gist.github.com/384602.txt
+(defun find-file-auto-encoding (filename)
+  (unwind-protect
+      (let ((encoding
+	     (progn
+	       (ignore-errors (insert-file-contents filename t nil 4096))
+	       (goto-char (point-min))
+	       (dolist (x *auto-encoding-alist* nil)
+		 (when (string-matchp (car x) filename)
+		   (return (funcall (cdr x))))))))
+	(when (stringp encoding)
+	  (setq encoding (gethash encoding
+				  *mime-charset-name-hash-table*)))
+        (if (char-encoding-p encoding)
+            encoding
+          (let ((params (find-file-scan-params)))
+            ;; Emacs互換: -*- coding: XXX -*- でも文字コードを指定できるように
+            (gethash (cdr (or (assoc "encoding" params :test #'string-equal)
+                              (assoc "coding" params :test #'string-equal)))
+                     *mime-charset-name-hash-table*))))
+    (erase-buffer (selected-buffer))))
 
 ;;; tail-f.l
 
@@ -580,10 +611,10 @@
 (defun pathname-directory (pathname)
   (let ((dir (ed::split-string (if (file-directory-p pathname)
                                    pathname
-                                   (directory-namestring pathname))
+                                 (directory-namestring pathname))
                                "/")))
     (if (find #\: (car dir))    ; remove drive-letter
         (cdr dir)
-        dir)))
+      dir)))
 
 ;;; redef.l ends here

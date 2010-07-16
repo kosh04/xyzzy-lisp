@@ -70,6 +70,7 @@
                        *modules*
                      (mapcan #'(lambda (path)
                                  ;; "*.l" -> "*"
+                                 ;; pathname-nameではディレクトリ名が除かれてしまう
                                  (mapcar #'(lambda (f) (substring f 0 -2))
                                          (directory path :recursive t :wild "*.l")))
                              *load-path*))
