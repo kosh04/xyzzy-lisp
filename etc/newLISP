@@ -1,5 +1,5 @@
 ;; keyword file for xyzzy -*- mode:newlisp -*-
-;; newLISP v.10.2.1 on Win32
+;; newLISP v.10.2.17 on Win32
 !
 !=
 $
@@ -7,10 +7,10 @@ $
 &
 *
 +
--
-/
 ++
+-
 --
+/
 :
 <
 <<
@@ -80,6 +80,7 @@ crit-z
 current-line
 curry
 date
+date-list
 date-value
 debug
 dec
@@ -119,8 +120,8 @@ exists
 exit
 exp
 expand
-extend
 explode
+extend
 factor
 fft
 file-info
@@ -134,8 +135,6 @@ float
 float?
 floor
 flt
-fn
-fn-macro
 for
 for-all
 format
@@ -165,8 +164,6 @@ intersect
 invert
 irr
 join
-lambda
-lambda-macro
 lambda?
 last
 last-error
@@ -192,16 +189,15 @@ max
 member
 min
 mod
-module
 mul
 multiply
-;name
 net-accept
 net-close
 net-connect
 net-error
 net-eval
 net-interface
+net-ipv
 net-listen
 net-local
 net-lookup
@@ -353,6 +349,13 @@ zero?
 |
 ~
 
+;
+lambda
+lambda-macro
+fn
+fn-macro
+module
+
 ;*2
 $0
 $1
@@ -374,6 +377,7 @@ $args
 $idx
 $it
 $main-args
+$reader-event
 ostype
 ;context
 MAIN
@@ -388,6 +392,7 @@ true
 peek
 fork
 wait-pid
+net-packet
 net-ping
 parse-date
 send
