@@ -2,8 +2,6 @@
 ;;;
 ;;; newlisp.l --- newLISP編集用メジャーモード
 ;;;
-;;; Copyright (C) 2008-2010 KOBAYASHI Shigeru (kosh)
-;;;
 ;;; This file is NOT part of xyzzy.
 ;;;
 
@@ -14,31 +12,34 @@ LISP風軽量スクリプト言語`newLISP'を編集するための簡単なメジャーモードです
 
 今のところ以下の操作が出来ます
 
+* newlispファイルの編集 (インデントなどはlisp-modeに依存)
 * 他のlisp-modeと同様にS式を評価する
 * 作成したスクリプトの実行
-* キーワード補完
+* 静的キーワード補完
 * マニュアルを調べる
 
 ### インストール
 
 (require "newlisp")
-(pushnew '("\\.lsp" . newlisp-mode) *auto-mode-alist* :test #'equal)
+(pushnew '("\\.lsp$" . newlisp-mode) *auto-mode-alist* :test #'equal)
+;; プロセス起動時の引数指定 (お好みで)
+(setq *newlisp-switches* "-C -s10000")
 
-### TODO:
+### TODO
 
 * インデントをlisp-modeから間借りしているのは直すべきか
-* デバッガモードが欲しい
+* デバッガモード用のインターフェースが欲しいかも
   prompt-debugger-mode
   " 0>"
   [-> 2 ] s|tep n|ext c|ont q|uit >
   (read-char *keyboard*)
   ログ機能(-l,-L)とtail-f使えないのかね
 
-### Known Bugs:
+### Known Bugs
 
 * 制御文字を含む出力が正しく表示されない "^@" => ""
 
-### Change Log:
+### Change Log
 
 2008-11-18 version 0.01 初版
 2009-04-01 version 0.02 それなりに使えるようになったはず
@@ -46,7 +47,10 @@ LISP風軽量スクリプト言語`newLISP'を編集するための簡単なメジャーモードです
 2009-12-01 DLLを扱えるように (newlispEvalStr)
 2010-01-21 整理整頓
 2010-04-19 newLISP v10.2.1に対応
+2011-05-20 コメント行(#)や文字列({}[text]~[/text])の色付けに対応
+	ドキュメント、キーワードファイルの更新
 
+;;; by KOBAYASHI Shigeru (kosh)  <shigeru.kb[at]gmail.com>
 |#
 
 ;;; Code:
@@ -68,15 +72,17 @@ LISP風軽量スクリプト言語`newLISP'を編集するための簡単なメジャーモードです
 (defvar *newlisp-directory*
   (or (si:getenv "NEWLISPDIR")
       (merge-pathnames "newlisp/" (si:getenv "PROGRAMFILES"))))
-(defvar *newlisp-exe* (merge-pathnames "newlisp.exe" *newlisp-directory*))
-(defvar *newlisp-dll* (merge-pathnames "newlisp.dll" *newlisp-directory*))
+(defvar *newlisp-exe* (merge-pathnames "newlisp.exe" *newlisp-directory*)
+  "実行ファイル(newlisp.exe)のパス.")
+(defvar *newlisp-dll* (merge-pathnames "newlisp.dll" *newlisp-directory*)
+  "共有ライブラリ(newlisp.dll)のパス.")
 
 ;; *** -C: Force prompt when running newLISP in pipe I/O mode for Emacs.
-(defvar *newlisp-switches* "-C -s10000"
-  "newLISP: コマンドラインオプション")
-;; -n オプションの有無
+(defvar *newlisp-switches* "-C"
+  "プロセスを起動するためのコマンドライン引数を指定します.")
+;; *** -n オプションの有無
 (defvar *newlisp-load-init-p* t
-  "起動時に初期化ファイル(init.lsp)を読み込むかどうか.")
+  "non-nilならばプロセス起動時に設定ファイル(init.lsp)を読み込みます.")
 
 (export '(newlisp-eval
           newlisp-eval-region
@@ -88,6 +94,7 @@ LISP風軽量スクリプト言語`newLISP'を編集するための簡単なメジャーモードです
           run-newlisp
           run-newlisp-console
           newlisp-kill-process
+          newlisp-signal-process
           newlisp-completion
           newlisp-show-log-buffer
           newlisp-browse-manual
@@ -99,7 +106,6 @@ LISP風軽量スクリプト言語`newLISP'を編集するための簡単なメジャーモードです
 (defvar *newlisp-process-encoding* *encoding-utf8n*)
 (defvar *newlisp-output-stream* nil)
 (defvar *newlisp-context* "MAIN")
-
 
 ;;; プロセス
 
@@ -172,10 +178,12 @@ LISP風軽量スクリプト言語`newLISP'を編集するための簡単なメジャーモードです
              (minibuffer-message "~A> ~A"
                                  (if (string= context "MAIN") "" context)
                                  str))))
-  "newLISPプロセスの出力用関数.")
+  "プロセスの出力用関数.")
 
 (defun newlisp-eval (str-sexp &optional stream)
+  "文字列STR-SEXPをS式として評価します."
   (interactive "snewLISP eval: ")
+  ;; (declare (ignore stream))
   (let ((proc (newlisp-process :if-does-not-exist :create)))
     (format *newlisp-output-stream* "~A~%" str-sexp)
     (labels ((sendln (str)
@@ -185,10 +193,12 @@ LISP風軽量スクリプト言語`newLISP'を編集するための簡単なメジャーモードです
       (sendln "[/cmd]"))))
 
 (defun newlisp-eval-region (from to &optional stream)
+  "リージョンを評価します."
   (interactive "r")
   (newlisp-eval (buffer-substring from to) stream))
 
 (defun newlisp-eval-last-sexp (&optional stream)
+  "ポイントの位置から見たひとつ前のS式を評価します."
   (interactive "p")
   (let ((opoint (point)))
     (unwind-protect
@@ -198,6 +208,7 @@ LISP風軽量スクリプト言語`newLISP'を編集するための簡単なメジャーモードです
       (goto-char (max (point) opoint)))))
   
 (defun newlisp-eval-defun ()
+  "ポイントの位置から見たトップレベルのS式を評価します."
   (interactive)
   (save-excursion
     (mark-defun)
@@ -206,26 +217,31 @@ LISP風軽量スクリプト言語`newLISP'を編集するための簡単なメジャーモードです
       (set-mark t))))
 
 (defun newlisp-load-file (file)
+  "FILEをnewlisp用ファイルとして読み込みます."
   (interactive "fnewLISP load: " :default0 (get-buffer-file-name))
-  (newlisp-eval (format nil "(load {~A})" file)))
+  (newlisp-eval (format nil "(load {~A})" (namestring file))))
 
 (defun newlisp-kill-process ()
+  "プロセスを強制的に終了させます."
   (interactive)
   #+NIL (newlisp-eval "(exit)")
-  #+NIL (signal-process (newlisp-process))
   (kill-process (newlisp-process))
   )
 
-(defun newlisp-kill-process-maybe ()
+(defun newlisp-signal-process ()
+  "プロセスにシグナルを送ります."
   (interactive)
-  (if (ignore-errors (newlisp-process))
-      (newlisp-kill-process)))
+  (signal-process (newlisp-process)))
+
+;(defun newlisp-kill-process-maybe ()
+;  (interactive)
+;  (if (ignore-errors (newlisp-process))
+;      (newlisp-kill-process)))
 
 (defun newlisp-eval-buffer (args)
-  "編集中のファイルをnewlisp.exeの引数として実行する."
-  (interactive (list (if *prefix-args*
-                         (read-string "newLISP exec args: ")
-                       "")))
+  "編集中のファイルをnewlispの引数として実行します.
+ARGSを追加の引数として指定することも出来ます."
+  (interactive (list (read-string "newLISP exec args: ")))
   (let ((*default-process-encoding* *newlisp-process-encoding*))
     (execute-subprocess (format nil "~A \"~A\" ~A"
                                 (get-short-path-name *newlisp-exe*)
@@ -234,10 +250,12 @@ LISP風軽量スクリプト言語`newLISP'を編集するための簡単なメジャーモードです
                         nil "*newLISP output*")))
 
 (defun run-newlisp-console (&optional command)
+  "コマンドプロンプト上でnewlispを起動します."
   (interactive)
   (launch-application (or command *newlisp-exe*)))
 
 (defun run-newlisp (&optional consolep)
+  "バッファ上でnewlispを起動します."
   (interactive "P")
   (let ((command (format nil "~A ~A ~A"
                          (get-short-path-name *newlisp-exe*)
@@ -276,6 +294,7 @@ LISP風軽量スクリプト言語`newLISP'を編集するための簡単なメジャーモードです
 (defvar *newlisp-completion-list* nil)
 
 (defun newlisp-completion ()
+  "キーワードファイルを基に補完を行います."
   (interactive)
   (or *newlisp-completion-list*
       (setq *newlisp-completion-list*
@@ -314,6 +333,7 @@ LISP風軽量スクリプト言語`newLISP'を編集するための簡単なメジャーモードです
     keymap))
 
 (defun newlisp-mode ()
+  "newLISP編集モード."
   (interactive)
   (kill-all-local-variables)
   (let ((ed::*lisp-mode-hook* nil))
@@ -330,7 +350,17 @@ LISP風軽量スクリプト言語`newLISP'を編集するための簡単なメジャーモードです
     (make-local-variable 'keyword-hash-table)
     (setq keyword-hash-table *newlisp-keyword-hash-table*))
   (setq comment-start "; " comment-end "") ; or "# "
-  ;; (newlisp-process :if-does-not-exist :create)
+  (make-local-variable 'regexp-keyword-list)
+  (setq regexp-keyword-list
+        (compile-regexp-keyword-list
+         '(
+           ; 文字列 (FIXME: あまり複雑なものに対応できてない)
+           ("\\[text\\]\\(?:.\\|\n\\)*?\\[/text\\]" nil :string nil)
+           ("{[^{}]*?}" nil :string nil)
+           ; コメント
+           ("#.*$" nil :comment nil)
+           )))
+  ;(newlisp-process :if-does-not-exist :create)
   (run-hooks '*newlisp-mode-hook*))
 
 (defun newlisp-keyword-list ()
@@ -347,6 +377,7 @@ LISP風軽量スクリプト言語`newLISP'を編集するための簡単なメジャーモードです
         (buffer-substring from to)))))
 
 (defun newlisp-show-log-buffer ()
+  "プロセスのログバッファを表示します."
   (interactive)
   (unless (and *newlisp-process-buffer*
                (not (deleted-buffer-p *newlisp-process-buffer*)))
@@ -363,6 +394,7 @@ LISP風軽量スクリプト言語`newLISP'を編集するための簡単なメジャーモードです
 
 (defindent define defun)
 (defindent fn lambda)
+(defindent fn-macro lambda)
 (defindent begin progn)
 (defindent silent progn)
 (defindent local let)
@@ -379,6 +411,7 @@ LISP風軽量スクリプト言語`newLISP'を編集するための簡単なメジャーモードです
 (defindent doargs 1)            ; (doargs (sym [break]) body)
 (defindent do-while while)      ; (do-while body)
 (defindent dotree 1)            ; (dotree (sym context [bool]) body)
+(defindent dostring 1)          ; (dostring (sym string [break]) body)
 
 
 ;;; リファレンス
@@ -440,13 +473,17 @@ LISP風軽量スクリプト言語`newLISP'を編集するための簡単なメジャーモードです
                    :case-fold t))
 
 ;; ブラウザから調べる
-(defun newlisp-browse-manual (name)
-  (interactive (list (read-newlisp-symbol "newLISP manual: ")))
-  (shell-execute (concat "http://www.newlisp.org/downloads/newlisp_manual.html#"
-                         (or (cdr (assoc name *newlisp-manual-link-alist*
-                                         :test #'string-equal))
-                             name))
-                 t))
+(defun newlisp-browse-manual (name &optional text-mode)
+  "リファレンスを参照します."
+  (interactive (list (read-newlisp-symbol "newLISP manual: ")
+                     *prefix-args*))
+  (if text-mode
+      (newlisp-browse-manual-from-text name)
+    (shell-execute (concat "http://www.newlisp.org/downloads/newlisp_manual.html#"
+                           (or (cdr (assoc name *newlisp-manual-link-alist*
+                                           :test #'string-equal))
+                               name))
+                   t)))
 
 (export '(*newlisp-manual*
           newlisp-browse-manual-from-text))
@@ -461,22 +498,26 @@ LISP風軽量スクリプト言語`newLISP'を編集するための簡単なメジャーモードです
 (defvar *newlisp-manual* "newlisp_manual.txt")
 
 ;; テキストファイルから調べる
-(defun newlisp-browse-manual-from-text (str)
-  "テキストマニュアルからリファレンスを参照する."
+(defun newlisp-browse-manual-from-text (keyword)
+  "テキストマニュアルからリファレンスを参照します."
   (interactive (list (read-newlisp-symbol "newLISP manual: ")))
   (find-file-other-window *newlisp-manual* nil 'nomsg)
   #+NIL
   (pop-to-buffer (prog2
                      (find-file-other-window *newlisp-manual* nil t)
                      (find-buffer "newlisp_manual.txt")))
+  (if (equal keyword "setf")
+      (setq keyword "setq"))
   (unless (eq buffer-mode 'newlisp-mode)
     (newlisp-mode))
   (toggle-read-only t)
   (goto-char (point-min))
-  ;; (scan-buffer (format nil "^    ~A[ ]?" (regexp-quote str)) :regexp t)
+  ;; (scan-buffer (format nil "^    ~A[ ]?" (regexp-quote keyword)) :regexp t)
   ;; (recenter 0)
-  ;; (scan-buffer (format nil "syntax: (~A[ )]" (regexp-quote str)) :regexp t)
-  (scan-buffer (format nil "        syntax: (~A[ )]" (regexp-quote str)) :regexp t)
+  ;; (scan-buffer (format nil "syntax: (~A[ )]" (regexp-quote keyword)) :regexp t)
+  (scan-buffer (format nil "        syntax: (~A[ )]"
+                       (regexp-quote keyword))
+               :regexp t)
   nil)
 
 (define-key ed::*newlisp-mode-map* '(#\C-c #\h) 'newlisp-browse-manual-from-text)
@@ -509,8 +550,9 @@ LISP風軽量スクリプト言語`newLISP'を編集するための簡単なメジャーモードです
 (c:*define-dll-entry winapi::LPSTR newlispEvalStr (winapi::LPSTR)
   *newlisp-dll*)
 
-(defun newlisp-eval-string (str)
-  (let ((addr (newlispEvalStr (si:make-string-chunk str)))
+(defun newlisp-eval-string (str-sexp)
+  "文字列STR-SEXPをS式として評価します."
+  (let ((addr (newlispEvalStr (si:make-string-chunk str-sexp)))
         ;; FIXME: 適当すぎる
         (size #x1000))
     (if (plusp addr)

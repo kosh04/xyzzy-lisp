@@ -1,5 +1,5 @@
 ;; keyword file for xyzzy -*- mode:newlisp -*-
-;; newLISP v.10.2.17 on Win32
+;; newLISP v.10.3.0 on Win32
 !
 !=
 $
@@ -377,7 +377,6 @@ $args
 $idx
 $it
 $main-args
-$reader-event
 ostype
 ;context
 MAIN
@@ -395,5 +394,6 @@ wait-pid
 net-packet
 net-ping
 parse-date
+date-parse
 send
 receive
