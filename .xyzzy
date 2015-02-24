@@ -1,0 +1,6 @@
+;;; .xyzzy	-*- Lisp -*-
+
+(let ((init (merge-pathnames
+             "site-lisp/init.l"
+             (directory-namestring (or *load-pathname* ".")))))
+  (load init :verbose t :print t))

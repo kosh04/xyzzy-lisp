@@ -1,4 +1,4 @@
-;; init.el
+;;; init.el
 
 (pushnew (directory-namestring (or *load-pathname* ".")) *load-path* :test #'path-equal)
 
