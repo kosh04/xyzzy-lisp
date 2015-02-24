@@ -36,8 +36,8 @@
    #:*precompiled-hook*
    ))
 
-#+xyzzy (in-package "wandbox")
-#-xyzzy (in-package #:wandbox)
+
+(in-package :wandbox)
 
 ;; Utility
 (defun lookup (item alist &key (test #'equal))
