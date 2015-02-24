@@ -105,7 +105,7 @@ On nonblank line, delete any immediately following blank lines."
          (compiled-file-name (compile-file-pathname buffer-file-name)))
     (if (and (file-newer-than-file-p compiled-file-name buffer-file-name)
              (not force-compile))
-	(load-file compiled-file-name)
+        (load-file compiled-file-name)
       (and (byte-compile-file buffer-file-name)
            (load compiled-file-name)))))
 

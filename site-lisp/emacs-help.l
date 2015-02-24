@@ -56,9 +56,9 @@
     (let ((sym (find-symbol
                 (completing-read prompt (expand-keymap keymap)
                                  :must-match t))))
-      (if (commandp sym)
-          (call-interactively sym)
-          (error "関数が定義されていません: ~A" sym)))))
+      (unless (commandp sym)
+        (error "関数が定義されていません: ~A" sym))
+      (call-interactively sym))))
 
 (defun call-help-list ()
   (interactive)
@@ -74,7 +74,8 @@
                                  (mapcar #'(lambda (f) (substring f 0 -2))
                                          (directory path :recursive t :wild "*.l")))
                              *load-path*))
-                   :case-fold t :must-match t))
+                   :case-fold t
+                   :must-match t))
 
 (defun find-library (lib)
   "*load-path*から適当に選んで開く."
