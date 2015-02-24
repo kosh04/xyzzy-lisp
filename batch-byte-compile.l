@@ -10,5 +10,5 @@
   ;; (kill-xyzzy)
   t)
 
-;; %XYZZYHOME%/lisp/estartup.l L98-99 éQè∆
+;; see %XYZZYHOME%/lisp/estartup.l L98-99
 (add-hook '*process-command-line-hook* 'batch-byte-compile)
