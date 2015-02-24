@@ -118,6 +118,11 @@
         (message "変更フラグをセットしました")
       (message "変更フラグをクリアしました"))))
 
+;; (defun toggle-read-only (&optional (arg nil sv))
+;;   (interactive "p")
+;;   (toggle-mode 'buffer-read-only arg sv)
+;;   (less-mode buffer-read-only))
+
 ;;; misc.l
 (defun toggle-trace-on-error (&optional (arg nil svar))
   (interactive "p")
@@ -145,6 +150,7 @@
 (in-package "editor")
 
 ;;; tags.l
+#+nil
 (defun jump-tag (&optional other-window)
   (interactive)
   (long-operation
@@ -314,11 +320,44 @@
 (setq *drag-and-drop-hook* #'default-drag-and-drop-hook)
 
 ;;; window.l
+#+NIL
 (defun toggle-tab (&optional (arg nil sv))
   (interactive "p")
   (toggle-window-flag *window-flag-tab* arg sv)
   (message "Toggle tab: ~:[OFF~;ON~]" ;+
            (not (zerop (logand (get-window-flags) *window-flag-tab*)))))
+
+(defun toggle-window-flag (f arg sv)
+  (cond ((null sv)
+         (set-window-flags (logxor (get-window-flags) f)))
+        ((if (numberp arg)
+             (minusp arg)
+           (null arg))
+         (set-window-flags (logand (get-window-flags) (lognot f))))
+        (t
+         (set-window-flags (logior (get-window-flags) f))))
+  ;+
+  (let ((msg (cdr (assoc f `((,*window-flag-line-number* . "行番号")
+                             (,*window-flag-ruler* . "ルーラー")
+                             (,*window-flag-newline* . "改行")
+                             (,*window-flag-tab* . "TAB")
+                             (,*window-flag-full-width-space* . "全角スペース")
+                             (,*window-flag-vscroll-bar* . "垂直スクロールバー")
+                             (,*window-flag-eof* . "EOF")
+                             (,*window-flag-hscroll-bar* . "水平スクロールバー")
+                             (,*window-flag-mode-line* . "モードライン")
+                             (,*window-flag-function-bar* . "ファンクションバー")
+                             (,*window-flag-fold-mark* . "折り返し")
+                             (,*window-flag-cursor-line* . "行カーソル")
+                             (,*window-flag-half-width-space* . "半角スペース")
+                             ;(,*window-flag-alternate-vscroll-bar* . "")
+                             ;(,*window-flag-scrolling* . "")
+                             (,*window-flag-just-inverse* . "ちゃんと反転する")
+                             (,*window-flag-fold-line* . "折り返しライン")
+                             )))))
+    (when msg
+      (message "~a: ~:[OFF~;ON~]" msg (/= 0 (logand (get-window-flags) f))))
+    ))
 
 ;;; help.l
 ;; apropos ですべてのパッケージを検索する (s/do-symbols/do-all-symbols)
@@ -396,18 +435,41 @@
         (*prefix-value* arg))
     ;; Emacs のようにタイプひとつで連続実行
     (tagbody
-      #1=#:continue
-      (when (command-execute *last-kbd-macro*)
+      continue
+      (prog1
+          (command-execute *last-kbd-macro*)
         (if *kbd-macro-undo-boundary* (undo-boundary))
-        ;; (refresh-screen)
+        ;(refresh-screen)
         (minibuffer-message "Press ~C repeat keyboard macro."
                             *kbd-macro-repeat-char*)
         (let ((ch (read-char)))
           ;; ループ内で判定しなくていい気はする
           ;; S式を変数に閉じ込めてfuncall?
           (if (char= ch *kbd-macro-repeat-char*)
-              (go #1#)
-              (unread-char ch)))))))
+              (go continue)
+            (unread-char ch)))))))
+
+;;; keymap.l
+(defun ed::read-key-sequence (local global minor-maps &optional prompt)
+  (do ((result)
+       (keymap (append (list (current-selection-keymap)) minor-maps
+                       (list local) (list global))))
+      ((progn
+         (when prompt
+           (minibuffer-prompt "~a~{~:c ~}" prompt result))
+         ;; 最初に見つけたコマンドを優先する
+         (or (some #'commandp keymap)
+             (notany #'keymapp keymap)))
+       (if (consp (cdr result))
+           result
+         (car result)))
+    (let ((c (read-char *keyboard*)))
+      (setq result (nconc result (list c)))
+      (setq keymap (mapcan #'(lambda (x)
+                               (when (keymapp x)
+                                 (let ((y (lookup-keymap x c)))
+                                   (and y (list y)))))
+                           keymap)))))
 
 ;;; fill.l
 ;; Emacsのように引数を明示的に指定させる
@@ -422,18 +484,6 @@
   (setq fill-column col))
 
 ;;; lispmode.l
-(defun kill-scratch-hook ()
-  (cond (*kill-buffer-kills-scratch*
-         t)
-        ((and (eq buffer-mode 'lisp-interaction-mode)
-              (equal (buffer-name (selected-buffer)) "*scratch*"))
-         ;; 消す前に保存する
-         (unless (zerop (buffer-size))
-           (write-file (merge-pathnames ".scratch.l" (si:system-root))))
-         (erase-buffer (selected-buffer))
-         nil)
-        (t t)))
-
 (defun eval-region (from to &optional stream)
   (interactive "r")
   (let ((result nil))
@@ -475,25 +525,28 @@
                     *default-buffer-mode*))))
 
 ;; http://gist.github.com/384602.txt
+;; 1. find-fileのENCODING
+;; 2. -*- encoding: XXX -*-
+;; 3. *auto-encoding-alist* の順番で優先させる
 (defun find-file-auto-encoding (filename)
   (unwind-protect
-      (let ((encoding
-	     (progn
-	       (ignore-errors (insert-file-contents filename t nil 4096))
-	       (goto-char (point-min))
-	       (dolist (x *auto-encoding-alist* nil)
-		 (when (string-matchp (car x) filename)
-		   (return (funcall (cdr x))))))))
-	(when (stringp encoding)
-	  (setq encoding (gethash encoding
-				  *mime-charset-name-hash-table*)))
-        (if (char-encoding-p encoding)
-            encoding
-          (let ((params (find-file-scan-params)))
-            ;; Emacs互換: -*- coding: XXX -*- でも文字コードを指定できるように
-            (gethash (cdr (or (assoc "encoding" params :test #'string-equal)
-                              (assoc "coding" params :test #'string-equal)))
-                     *mime-charset-name-hash-table*))))
+      (progn
+        (ignore-errors (insert-file-contents filename t nil 4096))
+        (goto-char (point-min))
+        (let ((encoding
+               (or (let ((params (find-file-scan-params)))
+                     ;; Emacs互換:
+                     ;; -*- coding: XXX -*- でも文字コードを指定できるように
+                     (gethash (cdr (or (assoc "encoding" params :test #'string-equal)
+                                       (assoc "coding" params :test #'string-equal)))
+                              *mime-charset-name-hash-table*))
+                   (dolist (x *auto-encoding-alist* nil)
+                     (when (string-matchp (car x) filename)
+                       (return (funcall (cdr x))))))))
+          (when (stringp encoding)
+            (setq encoding (gethash encoding *mime-charset-name-hash-table*)))
+          (if (char-encoding-p encoding)
+              encoding)))
     (erase-buffer (selected-buffer))))
 
 ;;; tail-f.l
@@ -541,6 +594,9 @@
     buffer))
 
 ;;; process.l
+;; hexl.l:dehexlify-buffer(utf16le-bom)と相性が悪かったので一時凍結
+;; 解除 2010-12-21T01:31:19+09:00
+;; #+NIL
 (defun filter-region (command &optional start end)
   (interactive "*e| \nr" :history0 'execute)
   (let (infile outfile encoding)
@@ -562,6 +618,7 @@
 	  (when (and start end)
             (delete-region start end))
           ;; 元のバッファと同じエンコーディングを指定
+          ;; FIXME: そもそも誰が得するんだっけ？
           (let ((*expected-fileio-encoding* encoding))
             (declare (special *expected-fileio-encoding*))
             (insert-file-contents outfile)))
