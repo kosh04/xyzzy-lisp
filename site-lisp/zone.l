@@ -81,6 +81,8 @@ zone-leave-me-alone - `zone-when-idle' ‚ğ‰ğœ‚·‚é
 2010-01-31 zone-programs ‚ª8Š„‚­‚ç‚¢“®‚­‚æ‚¤‚É‚È‚Á‚½
 2010-02-04 zone-programs ‚ª8Š„‹­“®‚­‚æ‚¤‚É‚È‚Á‚½
 
+2012-01-09 s/make-string/make-array
+
 ;;; by KOBAYASHI Shigeru (kosh)
 |#
 
@@ -415,7 +417,7 @@ If the element is a function or a list of a function and a number,
         (sit-for 0)))))
 
 (setf (get 'zone-pgm-whack-chars 'wc-tbl)
-      (let ((tbl (make-string 128)))
+      (let ((tbl (make-array 128)))
         (dotimes (i 128 tbl)
           (setf (aref tbl i) (code-char i)))))
 
@@ -474,7 +476,7 @@ If the element is a function or a list of a function and a number,
 ;; instances of the same letter have the same case, which produces a
 ;; less interesting effect than you might imagine.
 (defun zone-pgm-2nd-putz-with-case ()
-  (let ((tbl (make-string 128 :initial-element #\x))
+  (let ((tbl (make-array 128 :initial-element #\x :element-type 'character))
         (i 0))
     (while (< i 128)
       (setf (aref tbl i) (code-char i))
@@ -605,7 +607,7 @@ If the element is a function or a list of a function and a number,
          (hmm (cond
                ((string-match "[a-z]" c-string) (string-upcase c-string))
                ((string-match "[A-Z]" c-string) (string-downcase c-string))
-               (t (make-string cw-ceil :initial-element #\SPC)))))
+               (t (make-array cw-ceil :initial-element #\SPC :element-type 'character)))))
     (do ((i 0 (1+ i))
          (wait 0.5 (* wait 0.8)))
         ((= i 20))
@@ -622,7 +624,7 @@ If the element is a function or a list of a function and a number,
 
 (defun zone-fill-out-screen (width height)
   (let ((start (window-start))
-        (line (make-string width :initial-element #\SPC)))
+        (line (make-array width :initial-element #\SPC :element-type 'character)))
     (goto-char start)
     ;; fill out rectangular ws block
     (while (progn
@@ -642,7 +644,7 @@ If the element is a function or a list of a function and a number,
 
 (defun zone-fall-through-ws (c wbeg wend)
   (let* ((cw-ceil (ceiling (char-width (aref c 0))))
-         (spaces (make-string cw-ceil :initial-element #\SPC))
+         (spaces (make-array cw-ceil :initial-element #\SPC :element-type 'character))
          (col (current-column))
          (wait 0.15)
          newpos fall-p)
@@ -764,8 +766,9 @@ If the element is a function or a list of a function and a number,
            (kill-line))
          (goto-char (point-min))
          (insert (nth (random (length lines)) lines) "\n"))
-       (message (concat (make-string (random (- (frame-width) 5))
-                                     :initial-element #\SPC)
+       (message (concat (make-array (random (- (frame-width) 5))
+                                    :initial-element #\SPC
+                                    :element-type 'character)
                         "grrr"))
        (sit-for 0.1)))))
 
@@ -775,8 +778,9 @@ If the element is a function or a list of a function and a number,
    (sit-for 3 t)
    (erase-buffer (selected-buffer))
    (dotimes (i (window-lines))
-     (insert (make-string (random (- (window-columns) 5))
-                          :initial-element #\SPC)
+     (insert (make-array (random (- (window-columns) 5))
+                         :initial-element #\SPC
+                         :element-type 'character)
              "grrr" "\n"))
    (clear-message)
    (goto-char (point-max))
@@ -854,7 +858,10 @@ If nil, `zone-pgm-random-life' chooses a value from 0-3 (inclusive).")
             (if (and col (save-restriction
                            (narrow-to-region (point) max)
                            (search-forward "@" t)))
-                (cons (make-string (length (car col)) :initial-element #\SPC) col)
+                (cons (make-array (length (car col))
+                                  :initial-element #\SPC
+                                  :element-type 'character)
+                      col)
               (list (format "~{~A~^          ~}"
                             (make-list (/ (- rtc 11) 15) "@@@@@")))))))
       (unwind-protect
