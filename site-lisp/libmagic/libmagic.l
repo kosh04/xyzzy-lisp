@@ -2,7 +2,7 @@
 ;;;
 ;;; libmagic.l --- ファイルタイプ識別ライブラリ
 ;;;
-;;; Copyright (C) 2009 KOBAYASHI Shigeru
+;;; Copyright (C) 2009-2011  KOBAYASHI Shigeru
 ;;;
 ;;; This file is NOT part of xyzzy.
 
@@ -74,6 +74,13 @@ Known bugs
 * 存在しないファイルを magic_file に渡すと、"cannot open ~" が
   返ってくる (magic_error にエラーメッセージがセットされない)
 
+ChangeLog
+=========
+
+2009-*  first post
+2011-09-28 chunk-get-string の値を少し減らした
+2012-05-21 ??? DLLのパスを若干修正
+
 |#
 
 ;;; Code:
@@ -86,14 +93,14 @@ Known bugs
 
 (in-package "user")
 
-(defvar *regex-dll* (merge-pathnames "regex2.dll" (etc-path)))
+(defvar *regex-dll* (merge-pathnames "bin/regex2.dll" (directory-namestring (or *load-pathname* "."))))
+(defvar *magic-dll* (merge-pathnames "bin/magic1.dll" (directory-namestring (or *load-pathname* "."))))
+(defvar *zlib-dll* (merge-pathnames "bin/zlib1.dll" (directory-namestring (or *load-pathname* "."))))
 
-(eval-when (:load-toplevel :execute)
-  ;; 一応代入なしで読み込んでも使えるが
-  ;; モジュールオブジェクトがGCされる可能性がある
-  (setq regex-module (si:load-dll-module *regex-dll*)))
-
-(defvar *magic-dll* (merge-pathnames "magic1.dll" (etc-path)))
+;; 一応代入なしで読み込んでも使えるが
+;; モジュールオブジェクトがGCされる可能性がある
+(defvar *regex-module* (si:load-dll-module (namestring *regex-dll*)))
+(defvar *zlie-module* (si:load-dll-module (namestring *zlib-dll*)))
 
 #|
 #include <magic.h>
@@ -169,7 +176,8 @@ int magic_load(magic_t cookie, const char *filename);
 
 ;; FIXME: チャンクのアドレスはどのくらいの範囲が適当？
 (defun chunk-get-string (addr)
-  (check-type addr (integer #x0300000 *))
+  ;; XXX: `addr'の値`616608'は(integer 1048576 *)ではありません
+;  (check-type addr (integer #x100000 *))
   (si:unpack-string (si:make-chunk nil 1024 nil addr) 0 nil t))
 
 ;; (c:*define-dll-entry c:char* strerror (c:int) "msvcrt.dll")
@@ -177,7 +185,8 @@ int magic_load(magic_t cookie, const char *filename);
 
 ;;; User Interface
 
-(defvar *magic-database-file* (merge-pathnames "magic.mgc" (etc-path))
+(defvar *magic-database-file*
+  (merge-pathnames "./bin/magic.mgc" (directory-namestring (or *load-pathname* ".")))
   "magic データベースファイルのパス名.")
 
 (defvar *magic-flags* nil
