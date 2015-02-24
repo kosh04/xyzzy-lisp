@@ -20,22 +20,23 @@ xyzzyからcygwinのコマンドを扱う際に便利そうな関数を集めたものです。
 
 ### マニュアル
 
-- Function: run-cygwin-console (&optional login)
+-- Function: run-cygwin-console &optional LOGIN
 
-  別ウィンドウでコンソールを起動します。
-  引数を与えるとログインした状態でコンソールを起動します。
+   別ウィンドウでコンソールを起動します。
+   引数を与えるとログインした状態でコンソールを起動します。
 
-- Function: shell-on-cygwin ()
+-- Function: shell-on-cygwin
 
-  xyzzyのバッファからシェルを操作します。あまり使っていません:-P
+   xyzzyのバッファからシェルを操作します。あまり使っていません:-P
 
-- Function: less-mode (&optional (arg nil sv))
+-- Function: less-mode &optional (ARG nil SV)
 
-  lessのキーバインドを真似るマイナーモードです。"q"で終了します。
+   lessのキーバインドを真似るマイナーモードです。"q"で終了します。
 
-- Function: man (str &optional section)
+-- Function: man STR &optional SECTION
 
-  manページを表示します。SECTIONはmanのセクション番号(1-9)を指定します。
+   manページを表示します。SECTIONはmanのセクション番号(1-9)を指定します。
+   *** /cygwin/bin にパスが通っていないと多分動きません
 
 ### ChangeLog
 
@@ -149,7 +150,7 @@ xyzzyからcygwinのコマンドを扱う際に便利そうな関数を集めたものです。
 	(t
          ;; (delete-hook '*post-command-hook* 'less-message)
 	 (unset-minor-mode-map *less-mode-map*)))
-  (toggle-read-only less-mode)
+;  (toggle-read-only less-mode)
   (update-mode-line t))
 
 (defvar *less-mode-map* nil)
@@ -262,6 +263,8 @@ xyzzyからcygwinのコマンドを扱う際に便利そうな関数を集めたものです。
   "環境変数 $MANPATH と大体同じ.")
 (defvar *manual-cache-filename* "~/usr/.man-cache.l"
   "manを参照するためのトピックリストを保存するファイル名.")
+;; 自前で保存場所を決めるべきか
+;; ヒストリ変数として他とまとめるべきか
 (defvar *manual-list* nil)
 
 ;; ヒストリ
@@ -276,13 +279,21 @@ xyzzyからcygwinのコマンドを扱う際に便利そうな関数を集めたものです。
 ;; http://www.isthe.com/chongo/tech/comp/ansi_escapes.html
 (defun manpage-fontify-buffer ()
   (interactive "*")
-  (labels ((trim-buffer (regexp)
+  (labels ((trim-buffer (pattern &optional (regexp nil))
              (save-excursion
                (goto-char (point-min))
-               (replace-buffer regexp "" :regexp t))))
-    (trim-buffer ".\b\b")       ; ?
-    (trim-buffer "_\b")         ; 下線 :underline
-    (trim-buffer "\b.")         ; 太字 :bold
+               (replace-buffer pattern "" :regexp regexp))))
+    (trim-buffer ".\b\b" t)     ; ?
+    (trim-buffer "_\b" t)       ; 下線 :underline
+    (trim-buffer "\b." t)       ; 太字 :bold
+
+    (trim-buffer "\033[0m")   ; for windows7
+    (trim-buffer "\033[1m")
+    (trim-buffer "\033[4m")
+    (trim-buffer "\033[22m")
+    (trim-buffer "\033[24m")
+    (trim-buffer "\033[\n1m")
+    (trim-buffer "\033[0\nm")
     ))
 
 ;; (use 'make-process)
@@ -296,15 +307,14 @@ xyzzyからcygwinのコマンドを扱う際に便利そうな関数を集めたものです。
   (if section (setq str (format nil "~D ~A" section str)))
   (message "Invoking man ~A in the background" str)
   (let* ((tmpbuf (create-new-buffer " *Man temp*"))
-         (proc (make-process (format nil "\"~A\" ~A"
-                                     (cygpath "/bin/man" :type :windows)
-                                     str)
+         (proc (make-process (format nil "\"~A\" ~A" (cygpath "/bin/man" :type :windows) str)
                              :output tmpbuf
                              :environ (cons (cons "MANPATH"
                                                   (format nil "~{~A~^:~}" *manpath*))
                                             *cygwin-environment-alist*)
                              )))
-    (set-process-incode proc *encoding-euc-jp*)
+;    (set-process-incode proc *encoding-euc-jp*)
+    (set-process-incode proc *encoding-utf8n*)
     (set-process-eol-code proc *eol-lf*)
     (set-process-filter proc
                         #'(lambda (process str)
@@ -399,7 +409,7 @@ xyzzyからcygwinのコマンドを扱う際に便利そうな関数を集めたものです。
       (unless nomsg (message "Making manul list..done"))))
   *manual-list*)
 
-;; cygwinパッケージを更新したらマニュアルも更新
+;; XXX: cygwinパッケージを更新したらマニュアルも更新
 (export '(manual-list-update))
 (defun manual-list-update ()
   (interactive)
@@ -452,8 +462,8 @@ xyzzyからcygwinのコマンドを扱う際に便利そうな関数を集めたものです。
       (list (read-exist-file-name "Manual file: "
                                   :default (get-buffer-file-name)
                                   :title "マニュアルファイル")))
-  ;; man の引き数 name にスラッシュ (/) がある場合、
-  ;; man はファイルの指定であると解釈して検索を行わない
+  ;; man は引き数 name にスラッシュ (/) がある場合、
+  ;; ファイルの指定であると解釈して検索を行わない
   (man (cygpath file :type :unix)))
 
 ;;; cygwin.l ends here.
