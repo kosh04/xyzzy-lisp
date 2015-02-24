@@ -20,7 +20,15 @@
 
 (in-package :lisp)
 
-(shadow '(time) :winapi)
+#+NIL
+(shadow '(sleep time))
+
+;; FIXME: 上記の書き方だとシンボルの衝突が起こる
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (shadow '(sleep) (or (find-package :xhr) *package*))
+  (shadow '(time) (or (find-package :winapi) *package*))
+  (shadow '(time) (or (find-package :www) *package*))
+  nil)
 
 (export '(nth-value
           probe-file
@@ -33,7 +41,7 @@
           with-standard-io-syntax
           progv
           sleep
-          time                  ; 'winapi::time と被る可能性あり注意
+          time
           constantly
           function-lambda-expression
           name-char
@@ -173,10 +181,10 @@ If such a character does not exist, nil is returned."
   (values path
           (create-directory path :if-exists nil)))
 
-(export '(locally the))
+(export '(the))
 
 ;; $EMACS/lisp/emacs-lisp/cl-macs.el
-(defmacro locally (&rest body) `(let nil ,@body))
+;; (defmacro locally (&rest body) `(let nil ,@body))
 (defmacro the (type form) form)
 
 ;; http://www.nhplace.com/kent/CL/Revision-18.lisp
@@ -208,6 +216,5 @@ If such a character does not exist, nil is returned."
 
 
 (setf (get 'progv 'ed:lisp-indent-hook) 2)
-(setf (get 'locally 'ed:lisp-indent-hook) 1)
 
 ;;; cl.l ends here
