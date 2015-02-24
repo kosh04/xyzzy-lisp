@@ -77,9 +77,9 @@ Known bugs
 ChangeLog
 =========
 
-2009-*  first post
-2011-09-28 chunk-get-string の値を少し減らした
-2012-05-21 ??? DLLのパスを若干修正
+2009-xx-xx  first commit
+2011-09-28  chunk-get-string の値を少し減らした
+2015-02-25  makefileとテストコードを追加
 
 |#
 
