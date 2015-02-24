@@ -1,0 +1,48 @@
+;; init.el
+
+(pushnew (directory-namestring (or *load-pathname* ".")) *load-path* :test #'path-equal)
+
+(require "conf.backup")
+(require "conf.buffer")
+(require "conf.completion")
+(require "conf.diff")
+(require "conf.edict")
+(require "conf.encoding")
+(require "conf.filer")
+(require "conf.game")
+(require "conf.grep")
+(require "conf.help")
+(require "conf.isearch")
+(require "conf.ispell")
+(require "conf.javascript")
+(require "conf.keymaps")
+(require "conf.lisp")
+(require "conf.lispmode")
+(require "conf.progmode")
+(require "conf.shell")
+(require "conf.textedit")
+(require "conf.winapi")
+#+windows-7
+(require "conf.x022235")
+(require "conf.xml")
+(require "conf.misc")
+
+(require "redef")
+
+(require "junk-lib")
+(require "memo/junk")
+
+(require "emacs")
+(require "emacs-fn")            ; ?
+(require "emacskey")
+(require "winapp")
+(require "google-search")
+(require "patch-mode")
+(require "sessionstore")
+(require "json")
+(require "json-encode")
+(require "libmagic.conf")
+(require "hexl.conf")
+(require "newlisp.conf")
+(require "www-mode.conf")
+(require "xyttr.conf.l")
