@@ -8,7 +8,7 @@
 #|
 ### これは何？
 
-LISP風軽量スクリプト言語`newLISP'を編集するための簡単なメジャーモードです
+LISP風軽量スクリプト言語 newLISP を編集するための簡単なメジャーモードです
 
 今のところ以下の操作が出来ます
 
@@ -33,7 +33,6 @@ LISP風軽量スクリプト言語`newLISP'を編集するための簡単なメジャーモードです
   " 0>"
   [-> 2 ] s|tep n|ext c|ont q|uit >
   (read-char *keyboard*)
-  ログ機能(-l,-L)とtail-f使えないのかね
 
 ### Known Bugs
 
@@ -49,6 +48,9 @@ LISP風軽量スクリプト言語`newLISP'を編集するための簡単なメジャーモードです
 2010-04-19 newLISP v10.2.1に対応
 2011-05-20 コメント行(#)や文字列({}[text]~[/text])の色付けに対応
 	ドキュメント、キーワードファイルの更新
+2011-06-13 ??? newlisp-view-log 関数を追加
+2012-05-14 ??? キーワードファイルの更新 (v.10.4.3)
+		変数 *run-newlisp-other-window* の追加
 
 ;;; by KOBAYASHI Shigeru (kosh)  <shigeru.kb[at]gmail.com>
 |#
@@ -72,17 +74,16 @@ LISP風軽量スクリプト言語`newLISP'を編集するための簡単なメジャーモードです
 (defvar *newlisp-directory*
   (or (si:getenv "NEWLISPDIR")
       (merge-pathnames "newlisp/" (si:getenv "PROGRAMFILES"))))
-(defvar *newlisp-exe* (merge-pathnames "newlisp.exe" *newlisp-directory*)
-  "実行ファイル(newlisp.exe)のパス.")
-(defvar *newlisp-dll* (merge-pathnames "newlisp.dll" *newlisp-directory*)
-  "共有ライブラリ(newlisp.dll)のパス.")
 
-;; *** -C: Force prompt when running newLISP in pipe I/O mode for Emacs.
+(defvar *newlisp-exe* "newlisp.exe")
+(defvar *newlisp-dll* "newlisp.dll")
+
+;; NOTE: "-C" Force prompt when running newLISP in pipe I/O mode for Emacs.
 (defvar *newlisp-switches* "-C"
   "プロセスを起動するためのコマンドライン引数を指定します.")
-;; *** -n オプションの有無
+
 (defvar *newlisp-load-init-p* t
-  "non-nilならばプロセス起動時に設定ファイル(init.lsp)を読み込みます.")
+  "non-nilならばプロセス起動時に設定ファイル(.init.lsp)を読み込みます.")
 
 (export '(newlisp-eval
           newlisp-eval-region
@@ -95,9 +96,11 @@ LISP風軽量スクリプト言語`newLISP'を編集するための簡単なメジャーモードです
           run-newlisp-console
           newlisp-kill-process
           newlisp-signal-process
+          newlisp-change-dir
           newlisp-completion
           newlisp-show-log-buffer
           newlisp-browse-manual
+          *run-newlisp-other-window*
           *newlisp-mode-hook*))
 
 (defvar *newlisp-process* nil)
@@ -110,24 +113,22 @@ LISP風軽量スクリプト言語`newLISP'を編集するための簡単なメジャーモードです
 ;;; プロセス
 
 (defun newlisp-process (&key (if-does-not-exist :error))
-  (or
-   (and (processp *newlisp-process*)
-        (eq :run (process-status *newlisp-process*))
-        *newlisp-process*)
-   (case if-does-not-exist
-     (:error (error "サブプロセスが走ってないで"))
-     (:create (newlisp-make-process)))))
+  (or (and (processp *newlisp-process*)
+           (eq :run (process-status *newlisp-process*))
+           *newlisp-process*)
+      (case if-does-not-exist
+        (:error (error "サブプロセスが走ってないで"))
+        (:create (newlisp-make-process))
+        (:skip nil))))
 
 (defun newlisp-make-process (&key (type :process))
   (setq *newlisp-process-buffer* (get-buffer-create *newlisp-process-buffer-name*)
         *newlisp-output-stream* (make-buffer-stream *newlisp-process-buffer*))
-  (let ((command (if (file-exist-p *newlisp-exe*)
-                     (get-short-path-name *newlisp-exe*)
-                   *newlisp-exe*))
+  (let ((command *newlisp-exe*)
         (switches (split-string *newlisp-switches* " ")))
     (if (null *newlisp-load-init-p*)
         (pushnew "-n" switches :test #'equal))
-    (let ((proc (make-process (format nil "~{~A~^ ~}" `(,command ,@switches))
+    (let ((proc (make-process (format nil "\"~A\" ~{~A~^ ~}" command switches)
                               :output *newlisp-process-buffer*
                               :incode *newlisp-process-encoding*
                               :outcode *newlisp-process-encoding*)))
@@ -221,6 +222,11 @@ LISP風軽量スクリプト言語`newLISP'を編集するための簡単なメジャーモードです
   (interactive "fnewLISP load: " :default0 (get-buffer-file-name))
   (newlisp-eval (format nil "(load {~A})" (namestring file))))
 
+(defun newlisp-change-dir (dir)
+  "プロセスの作業ディレクトリを変更します."
+  (interactive "DchangeDir: ")
+  (newlisp-eval (format nil "(change-dir {~A})" dir)))
+
 (defun newlisp-kill-process ()
   "プロセスを強制的に終了させます."
   (interactive)
@@ -231,40 +237,41 @@ LISP風軽量スクリプト言語`newLISP'を編集するための簡単なメジャーモードです
 (defun newlisp-signal-process ()
   "プロセスにシグナルを送ります."
   (interactive)
-  (signal-process (newlisp-process)))
+  (signal-process (newlisp-process))) ; SIGINT?
 
 ;(defun newlisp-kill-process-maybe ()
 ;  (interactive)
 ;  (if (ignore-errors (newlisp-process))
 ;      (newlisp-kill-process)))
 
-(defun newlisp-eval-buffer (args)
-  "編集中のファイルをnewlispの引数として実行します.
+(defun newlisp-eval-buffer (&optional (args ""))
+  "編集中のファイルをnewlispスクリプトとして実行します.
 ARGSを追加の引数として指定することも出来ます."
-  (interactive (list (read-string "newLISP exec args: ")))
-  (let ((*default-process-encoding* *newlisp-process-encoding*))
-    (execute-subprocess (format nil "~A \"~A\" ~A"
-                                (get-short-path-name *newlisp-exe*)
-                                (get-buffer-file-name)
-                                args)
-                        nil "*newLISP output*")))
+  (interactive (list (if *prefix-args* (read-string "newLISP exec args: "))))
+  (let ((command (format nil "\"~A\" \"~A\" ~A"
+                     *newlisp-exe*
+                     (get-buffer-file-name)
+                     args))
+        (*default-process-encoding* *newlisp-process-encoding*))
+    (execute-subprocess command nil "*newLISP output*")))
 
 (defun run-newlisp-console (&optional command)
   "コマンドプロンプト上でnewlispを起動します."
   (interactive)
   (launch-application (or command *newlisp-exe*)))
 
-(defun run-newlisp (&optional consolep)
+(defvar *run-newlisp-other-window* t
+  "non-nilならばrun-newlispを別のウィンドウで開きます.")
+
+(defun run-newlisp ()
   "バッファ上でnewlispを起動します."
-  (interactive "P")
-  (let ((command (format nil "~A ~A ~A"
-                         (get-short-path-name *newlisp-exe*)
+  (interactive)
+  (let ((command (format nil "\"~A\" ~A ~A"
+                         *newlisp-exe*
                          (if *newlisp-load-init-p* "" "-n")
                          *newlisp-switches*))
-        (*default-process-encoding* *newlisp-process-encoding*))
-    (when consolep
-      (run-newlisp-console command)
-      (return-from run-newlisp t))
+        (*default-process-encoding* *newlisp-process-encoding*)
+        (obuf (selected-buffer)))
     (set-buffer (get-buffer-create "*newLISP*"))
     (let ((proc (buffer-process (selected-buffer))))
       (and proc (eq (process-status proc) :run)
@@ -272,7 +279,7 @@ ARGSを追加の引数として指定することも出来ます."
     (goto-char (point-max))
     ;; newlisp-shell-mode
     (progn
-      (setq mode-name "newLISP Shell")
+      (setq mode-name "newLISP REPL")
       (setq buffer-mode 'shell-mode)
       (use-keymap *shell-mode-map*)
       (setq need-not-save t)
@@ -283,8 +290,10 @@ ARGSを追加の引数として指定することも出来ます."
                   :output (selected-buffer)
                   :incode *newlisp-process-encoding*
                   :outcode *newlisp-process-encoding*
-                  :eol-code *eol-guess*)))
-
+                  :eol-code *eol-guess*)
+    (when *run-newlisp-other-window*
+      (display-buffer obuf))
+    t))
 
 ;;; 編集
 
@@ -354,10 +363,10 @@ ARGSを追加の引数として指定することも出来ます."
   (setq regexp-keyword-list
         (compile-regexp-keyword-list
          '(
-           ; 文字列 (FIXME: あまり複雑なものに対応できてない)
+           ; 文字列 (あまり複雑なものに対応できてない)
            ("\\[text\\]\\(?:.\\|\n\\)*?\\[/text\\]" nil :string nil)
            ("{[^{}]*?}" nil :string nil)
-           ; コメント
+           ; 一行コメント
            ("#.*$" nil :comment nil)
            )))
   ;(newlisp-process :if-does-not-exist :create)
@@ -383,6 +392,15 @@ ARGSを追加の引数として指定することも出来ます."
                (not (deleted-buffer-p *newlisp-process-buffer*)))
     (error "プロセスが存在しません"))
   (display-buffer *newlisp-process-buffer*))
+
+(export 'newlisp-view-log)
+
+(defun newlisp-view-log (file)
+  "ログファイル(-l,-L オプション)を参照します."
+  (interactive "fLog file: ")
+  (require "tail-f")
+  (let ((*expected-eol-code* *eol-crlf*))
+    (tail-f file)))
 
 
 ;;; インデント
@@ -488,6 +506,10 @@ ARGSを追加の引数として指定することも出来ます."
 (export '(*newlisp-manual*
           newlisp-browse-manual-from-text))
 
+;; ==========================
+;; テキストファイルから調べる
+;; ==========================
+;; 
 ;; 以下のいずれかのHTMLファイルをテキストに変換させたものを用意する必要あり
 ;; - "http://www.newlisp.org/downloads/newlisp_manual.html"
 ;; - "C:/Program Files/newlisp/newlisp_manual.html"
@@ -497,7 +519,6 @@ ARGSを追加の引数として指定することも出来ます."
 ;;    (上記のファイルをテキストに変換したもの)
 (defvar *newlisp-manual* "newlisp_manual.txt")
 
-;; テキストファイルから調べる
 (defun newlisp-browse-manual-from-text (keyword)
   "テキストマニュアルからリファレンスを参照します."
   (interactive (list (read-newlisp-symbol "newLISP manual: ")))
@@ -506,8 +527,8 @@ ARGSを追加の引数として指定することも出来ます."
   (pop-to-buffer (prog2
                      (find-file-other-window *newlisp-manual* nil t)
                      (find-buffer "newlisp_manual.txt")))
-  (if (equal keyword "setf")
-      (setq keyword "setq"))
+  (if (equal keyword "setf") (setq keyword "setq"))
+  (if (equal keyword "parse-date") (setq keyword "date-parse"))
   (unless (eq buffer-mode 'newlisp-mode)
     (newlisp-mode))
   (toggle-read-only t)
@@ -534,8 +555,7 @@ ARGSを追加の引数として指定することも出来ます."
                        :if-exists :overwrite)
     (format out ";; keyword file for xyzzy -*- mode:newlisp -*-\n")
     (write (shell-command-to-string
-            (format nil "newlisp -n -e \"~A\""
-                    '(dolist (s (symbols MAIN)) (println s))))
+            (format nil "newlisp -n -e \"(dolist (s (symbols MAIN)) (println s))\""))
            :stream out
            :escape nil
            :pretty t))
