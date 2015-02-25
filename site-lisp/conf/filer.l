@@ -92,9 +92,74 @@
 ;; http://xyzzy.s53.xrea.com/wiki/index.php?cmd=read&page=tips%2F%A5%D5%A5%A1%A5%A4%A5%E9%A4%C7%B6%A6%CD%AD%A5%D5%A5%A9%A5%EB%A5%C0%A4%F2%C1%AA%C2%F2
 (require "filer-servers")
 
+
+(defun filer-transpose-window ()
+  "ファイラの左右画面を交換します."
+  (interactive)
+  (when (filer-dual-window-p)
+    (let ((x (filer-get-directory nil))
+          (y (filer-get-directory t)))
+      (and (filer-set-directory y nil)
+           (filer-reload nil nil))
+      (and (filer-set-directory x t)
+           (filer-reload nil t)))
+    t))
+
+;; *filer-follow-links* が non-nil なら勝手にショートカット
+;; (ディレクトリ限定) を展開してくれるみたい
+(defun filer-chdir->link ()
+  "リンク先のディレクトリを開く"
+  (interactive)
+  (filer-chdir (directory-namestring
+                (ed::filer-read-link
+                 (filer-get-current-file)))))
+(define-key filer-keymap #\C-j 'filer-chdir->link)
+
+;; 「進む」も作りたいが...
+(defun filer-backward-directory ()
+  "「戻る」"
+  (interactive)
+  (tagbody
+    #1=continue
+    (pop ed::*filer-directory-history*)
+    (cond ((null ed::*filer-directory-history*)
+           (error "これ以上戻れません"))
+          ((not (file-exist-p (nth 0 ed::*filer-directory-history*)))
+           (go #1#))))
+  (filer-set-directory (nth 0 ed::*filer-directory-history*))
+  (filer-reload)
+  (message "Next Back: ~A" (nth 1 ed::*filer-directory-history*)))
+(define-key filer-keymap #\C-b 'filer-backward-directory)
+
+(defun filer-open-dual-window ()
+  "一画面ファイラから二画面ファイラを開く."
+  (interactive)
+  (unless (filer-dual-window-p)
+    (let ((*filer-primary-directory* (filer-get-directory)))
+      (filer-close nil)
+      (open-filer))))
+
+;; http://goo.gl/WSlOd - tips/.lnkを展開する
+(defparameter *find-file-follow-link* t
+  "non-nilならばファイルを開く際にショートカットを展開します.")
+
+(defun find-file-follow-link (file)
+  "tips/.linkを展開する - XyzzyWikiより"
+  (if *find-file-follow-link*
+      (let ((sh (ignore-errors
+                 (resolve-shortcut file))))
+        (when sh
+          (find-file sh)
+          (get-file-buffer sh)))))
+
+(add-hook '*before-find-file-hook* 'find-file-follow-link)
+
+;; keymap
 (global-set-key '(#\C-c #\C-f) 'open-filer*)
 (define-key filer-keymap #\C-c 'run-console*)
 (define-key filer-keymap #\C-e 'open-explorer)
+(define-key filer-keymap #\C-t 'filer-transpose-window)
+(define-key filer-keymap #\M-2 'filer-open-dual-window)
 (define-key filer-keymap #\C-u 'filer-up-directory)
 (define-key filer-keymap #\G 'filer-reload)
 (define-key filer-keymap #\~ 'filer-delete-backups)

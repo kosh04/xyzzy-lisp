@@ -13,3 +13,9 @@
 
 ;; #?(printf debug)
 (require "pp")
+
+(require "disassemble")
+(require "profile")
+
+;; テストスイート
+;; C:/home/lxuser/code/lisp/cl-ansi-tests-20071218/

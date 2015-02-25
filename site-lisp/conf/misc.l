@@ -82,3 +82,38 @@
 
 ;; ** delete-indentation [M-^] である程度代用できるかも (2012-10-11)
 ;; (global-set-key '(#\ESC #\SPC) 'delete-indentation)
+
+;; メニューバーに[バッファ(B)]を追加する
+(require "menubar")
+
+(defun add-menu-user-init ()
+  (let ((edit-menu (get-menu *app-menu* 'ed::edit)))
+    ;; 編集＞書込み禁止
+    (add-menu-separator edit-menu)
+    (add-menu-item edit-menu nil "書込み禁止(&%)" 'toggle-read-only
+                   #'(lambda () (when buffer-read-only :check)))
+    ;; 編集＞タブインデントモード
+    (add-menu-separator edit-menu)
+    (add-menu-item edit-menu nil
+                   "タブインデントモード(&T)"
+                   #'(lambda (&optional (arg nil sv))
+                       (interactive)
+                       (ed::toggle-mode 'indent-tabs-mode arg sv))
+                   #'(lambda ()
+                       (when indent-tabs-mode :check)))))
+
+(add-hook '*post-startup-hook* 'add-menu-user-init)
+
+;; Blowfish
+(require "blowfish/readme_l")
+
+;; ピコカキコ用
+(pushnew '("\\.fml$" . c-mode) *auto-mode-alist* :test #'equal)
+;; (global-set-key #\F11 'winamp::Stop-button)
+;; (global-set-key #\F12 'winamp::Play-track)
+(defun mml-play-file (file)
+  (interactive
+      (list (read-exist-file-name "MML: " :default (get-buffer-file-name))))
+  (shell-execute "C:/Program Files/Winamp/winamp.exe" nil file))
+
+(require "re-builder")

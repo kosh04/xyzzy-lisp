@@ -1,7 +1,9 @@
 ;; conf.Game.l
 
-(autoload 'aitan "aitan" t)
-(autoload 'mandelbrot "mandelbrot" t)
+(require "aitan")
+(require "animate")
+(require "mandelbrot")
+(require "zone")
 
 (defun kitaa ()
   (interactive)

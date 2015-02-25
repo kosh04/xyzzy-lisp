@@ -1,5 +1,11 @@
 ;;; memo/junk.l --- 使用頻度の高くないもの
 
+;; xyzzy が終了できない事態になったらひとまずこいつを実行
+(defun run-kill-xyzzy-hook ()
+  "*kill-xyzzy-hook* を実行する."
+  (interactive)
+  (run-hooks '*kill-xyzzy-hook*))
+
 ;; XyzzyWikiから拾ってきたんだと思う
 (defun recentf-open-files ()
   "履歴からファイルを開く"
@@ -400,4 +406,133 @@
 (defshell :name "Clojure"
           :command "java -cp C:/Users/shigeru/bin/clojure-1.3.0.jar clojure.main")
 |#
+
+
+(defun set-local-tab-columns (col)
+  "タブ幅の設定をします (バッファローカル)"
+  (interactive "nTab tolumn: ")
+  (unless (<= 1 col 32)
+    (error "範囲外の整数です"))
+  (set-tab-columns col (selected-buffer)))
+
+(defun rotate-split-window (&optional clockwise)
+  "ウィンドウの縦分割⇔横分割を切り替えます."
+  (interactive "P")
+  (let ((coordinates (mapcar #'(lambda (x) (car (last x)))
+                             (third (current-window-configuration)))))
+    (when (= (length coordinates) 2)
+      ;; horizontal: ((0 0 X Y) (0 Y X *))
+      ;; vertical: ((0 0 X Y) (X 0 * Y))
+      (delete-other-windows)
+      (cond ((zerop (cadadr coordinates))
+             (split-window))
+            ((zerop (caadr coordinates))
+             (split-window-vertically)))
+      ;; 引数の有無によって時計回り、反時計回りを制御したいんだが。
+      ;; このコードは失敗
+      (when clockwise (other-window))
+      (switch-to-buffer (other-buffer))
+      (other-window))))
+(global-set-key '(#\C-x #\t #\w) 'rotate-split-window)
+
+(defun do-completion-dwim ()
+  (interactive)
+  ;; (unless (or (boundp 'keyword-hash-table) keyword-hash-table) (error "キーワードがありません"))
+  (if (member buffer-mode '(lisp-mode
+                            lisp-interaction-mode
+                            fundamental-mode))
+      (lisp-complete-symbol)
+    (do-completion (save-excursion (skip-syntax-spec-backward "w_") (point))
+                   (point)
+                   :list-ignore-case
+                   (make-list-from-keyword-table keyword-hash-table))))
+(global-set-key '(#\C-c #\C-i) 'do-completion-dwim)
+;; (global-set-key #\M-TAB 'do-completion-dwim)
+
+;; 一発インデント
+(defun indent-buffer ()
+  "バッファをインデントします."
+  (interactive "*")
+  (when mode-specific-indent-command
+    (save-excursion
+      (goto-char (point-min)) ; 1行目もインデント
+      (funcall mode-specific-indent-command)
+      (indent-region (point-min) (point-max))
+      (message "indent buffer...done"))))
+
+;(global-set-key #\C-F8 'indent-buffer)
+
+(defun goto-char-interactive (point)
+  (interactive "nGoto char: ")
+  (goto-char point))
+
+(defun tac-region (start end)
+  "行を逆順にする."
+  (interactive "*r")
+  (filter-region "C:/cygwin/bin/tac.exe" start end))
+
+;; xyzzy で Unicode エスケープ
+;; http://ukgk.g.hatena.ne.jp/faerie/20061005/1160035556
+(defun unicode-escape (input &optional output)
+  "ストリームを Unicode エスケープする。"
+  (let (c)
+    (while (setq c (read-char input nil))
+      (if (> (char-unicode c) 255)
+          (format output "\\u~4,'0X" (char-unicode c))
+        (write-char c output)))))
+
+(defun unicode-escape-region (from to)
+  "リージョンを Unicode エスケープする。"
+  (interactive "*r")
+  (ed::text-decode-region #'unicode-escape from to))
+
+(defun unicode-escape-string (s)
+  "文字列を Unicode エスケープする。"
+  (with-output-to-string (o)
+    (with-input-from-string (i s)
+      (unicode-escape i o))))
+
+#+nil
+(unicode-escape-string "いろは") ; "\\u3044\\u308d\\u306f"
+
+(defun one-line (str &optional (padding #\SPC))
+  "文字列を一行にまとめる."
+  (if padding
+      (substitute padding #\LFD str)
+      (remove #\LFD str)))
+
+;; (provide ".xyzzy") => ".xyzzy"
+;; FIXME: goal-column を考慮してない、てか移動するの？
+(defun find-buffer-provide ()
+  (save-excursion
+    (ed::protect-match-data
+      (goto-char (point-min))
+      (and (or (re-search-forward "(provide \"\\(.+\\)\")" t) ; (privide "foo")
+               (re-search-forward "(provide '\\(.+\\))" t))   ; (probide 'foo)
+           (match-string 1)))))
+
+
+(defun toggle-buffer-fold (&optional default)
+  "折り返しの切り替え."
+  (interactive "P")
+  (let ((foldp (buffer-fold-width)))
+    (cond
+     ;; 引数があれば折り返さない
+     (default (set-buffer-fold-type-none))
+     ;; 折り返さない->ウィンドウ幅で
+     ((null foldp) (set-buffer-fold-type-column))
+     ;; 指定桁で-> 折り返さない
+     ((integerp foldp) (set-buffer-fold-type-window))
+     ;; ウィンドウ幅で->指定桁で
+     (t (set-buffer-fold-type-none))))
+  (message (let ((f (buffer-fold-width)))
+             (cond ((null f)
+                    "[折り返さない]->指定幅で折り返す(~D)->ウィンドウ幅で折り返す")
+                   ((integerp f)
+                    "折り返さない->[指定幅で折り返す(~D)]->ウィンドウ幅で折り返す")
+                   (t
+                    "折り返さない->指定幅で折り返す(~D)->[ウィンドウ幅で折り返す]")))
+           (default-value 'buffer-fold-width)))
+
+(global-set-key '(#\C-x #\t #\f) 'toggle-buffer-fold)
 

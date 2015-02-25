@@ -42,3 +42,19 @@
       (restore-xyzzy)))
 
 (global-set-key #\M-F10 'toggle-xyzzy-window)
+
+;; 手前に表示 #'toggle-topmost-xyzzy
+(require "topmost")
+(add-hook '*post-startup-hook* 'ed::topmost-uninstall)
+(defun add-menu-topmost ()
+  (let ((window-menu (get-menu *app-menu* 'ed:window)))
+    (add-menu-separator window-menu)
+    (add-menu-item window-menu 'ed:window "常に手前に表示 (&T)"
+                   'toggle-topmost-xyzzy
+                   #'(lambda () (and (topmost-xyzzy-p) :check)))))
+(add-hook '*init-app-menus-hook* 'add-menu-topmost)
+
+(require "winamp")
+(defun winamp-now-playing ()
+  (interactive)
+  (message "~A" (winamp::get-title-playing)))

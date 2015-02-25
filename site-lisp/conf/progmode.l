@@ -33,7 +33,11 @@
 
 (global-set-key #\F4 'tag-jump)
 
-;; php-mode
+;; Basic
+(pushnew '("\\.vbs$" . basic-mode) *auto-mode-alist* :test 'equal) ; VBScript
+(pushnew '("\\.asp$" . basic-mode) *auto-mode-alist* :test 'equal) ; Active Server Pages
+
+;; PHP-mode
 (require "php-mode")
 ;(load-library "php-misc")
 (pushnew '("\\.php$" . php-mode) *auto-mode-alist*)
@@ -50,7 +54,12 @@
 (pushnew '("\\.cmd$" . bat-mode) *auto-mode-alist* :test 'equal)
 (push (car (compile-regexp-keyword-list '(("\\<\\(?:SETLOCAL\\|ENDLOCAL\\)\\>" t (:keyword 0))))) *bat-regexp-keyword-list*)
 
-;; python-mode
+;; Lua
+(require "lua")
+(pushnew '("\\.lua\\(?:doc\\)?$" . lua-mode) *auto-mode-alist* :test #'equal)
+(pushnew '("\\.nse$" . lua-mode) *auto-mode-alist* :test #'equal)
+
+;; Python-mode
 (autoload 'ed::py-mode "py-mode" t)
 (push '("\\.py$" . ed::py-mode) *auto-mode-alist*)
 (setf (symbol-function 'python-mode) 'ed::py-mode)
@@ -74,6 +83,7 @@
 (require "makefile-mode")
 
 ;; HTML+
+(require "htmlmode")
 (unintern 'html+-mode)		; XXX
 (setq ed::*html+-use-html-kwd* t) ; use HTML 5.0
 (require "html+-mode")
@@ -94,3 +104,14 @@
 (pushnew "/usr/local/man/" *manpath* :test #'equal)
 
 (setf (symbol-function 'bash) #'run-cygwin-console)
+
+;; アセンブラ (for GAS-SH)
+(require "asm-mode")
+(pushnew '("\\.\\(asm\\|s\\)$" . asm-mode) *auto-mode-alist* :test #'equal)
+
+(require "cmacexp")
+(define-key ed::*c-mode-map* '(#\C-c #\C-e) 'c-macro-expand-region)
+
+;; Linux設定ファイル用
+(pushnew '("\\.conf\\>" . perl-mode) *auto-mode-alist*)
+(setf (symbol-function 'conf-mode) #'perl-mode)

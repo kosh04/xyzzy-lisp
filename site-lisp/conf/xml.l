@@ -11,6 +11,8 @@
 (pushnew '("\\.wsf$" . xml-mode) *auto-mode-alist* :test #'equal)
 (pushnew '("\\.xsd$" . xml-mode) *auto-mode-alist* :test #'equal)
 
+(setq xml::*xml-cdata-attribute* '(:foreground 15))
+
 (defun xml-mode-user-hooks ()
   (setq comment-indent-function #'xml:xml-comment-indent))
 ;(add-hook 'xml:*xml-mode-hook* 'xml-mode-user-hooks)

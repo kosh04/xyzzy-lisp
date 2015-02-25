@@ -1,6 +1,7 @@
 ;;; conf.encoding.l
 
 ;; coding:utf-8 は BOM なしでお願い
+;; or http://d.hatena.ne.jp/bowbow99/20100430/1272604971
 (setf (gethash "utf-8" *mime-charset-name-hash-table*) *encoding-utf8n*)
 
 ;; 文字コードの問題 '((cmd . sjis) (bash . euc-jp))
@@ -35,4 +36,14 @@
 
 (setf (symbol-function 'zenkaku) #'map-to-full-width-string)
 (setf (symbol-function 'hankaku) #'map-to-half-width-string)
+
+(setf (symbol-function 'map-url-decode-region) #'url-encoding-decode-region)
+(defun url-encoding-decode-selection ()
+  (interactive "*")
+  (ed::map-selection #'url-encoding-decode-region))
+
+;; 内部エンコーディングが変になる
+;; (defun url-encoding-encode-region (from to)
+;;   (interactive "*r")
+;;   (ed::text-decode-region #'si:www-url-encode from to))
 

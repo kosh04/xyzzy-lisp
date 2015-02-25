@@ -18,6 +18,9 @@
                   ((modulep 'isearch) (intern "isearch-backward" "editor"))
                   (:else 'search-backward)))
 
+;; ê‹ÇËï‘ÇµÇ¢ÇÁÇ»Ç¢
+(add-hook '*shell-mode-hook* 'set-buffer-fold-type-none)
+
 (defun shell-next-prompt (&optional (n 1))
   (interactive "p")
   (cond ((plusp n)

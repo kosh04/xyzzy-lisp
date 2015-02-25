@@ -1888,32 +1888,33 @@ $ man clisp
 (format nil "~16,'0B" (char-code #\M-g)) ; "1000000001100111"
 (format nil "~16,'0B" (char-code #\C-g)) ; "0000000000000111"
 
-;; xyzzy で Unicode エスケープ
-;; http://ukgk.g.hatena.ne.jp/faerie/20061005/1160035556
-(defun unicode-escape (input &optional output)
-  "ストリームを Unicode エスケープする。"
-  (let (c)
-    (while (setq c (read-char input nil))
-      (if (> (char-unicode c) 255)
-          (format output "\\u~4,'0X" (char-unicode c))
-        (write-char c output)))))
-
-(defun unicode-escape-region (from to)
-  "リージョンを Unicode エスケープする。"
-  (interactive "*r")
-  (ed::text-decode-region #'unicode-escape from to))
-
-(defun unicode-escape-string (s)
-  "文字列を Unicode エスケープする。"
-  (with-output-to-string (o)
-    (with-input-from-string (i s)
-      (unicode-escape i o))))
-
-(unicode-escape-string "いろは") ; "\\u3044\\u308d\\u306f"
+;; http://white.s151.xrea.com/wiki/index.php?memo%2Fxyzzy%2Fedit#x74943ba
+(defun unicode-unescape-region (&optional from to)
+  (interactive "r*")
+  (or (< from to)
+      (rotatef from to))
+  #+NIL
+  (save-excursion
+    (goto-char from)
+    (while (scan-buffer "\\\\u\\([A-Za-z0-9_]\\{4\\}\\)" :regexp t :limit to)
+      (let ((str (match-string 1)))
+        (delete-region (match-beginning 0) (match-end 0))
+        (insert (unicode-char (parse-integer str :radix 16))))))
+  (save-excursion
+    (save-restriction
+      (narrow-to-region from to)
+      (goto-char (point-min))
+      (while (re-search-forward "\\\\u\\([A-Za-z0-9_]\\{4\\}\\)" t)
+        (replace-match (string (unicode-char
+                                (parse-integer (match-string 1) :radix 16)))
+                       :literal t))))
+  )
 
 ;; md5 ハッシュ値
-(with-open-file (s "C:/home/xyzzy/dic")
-  (si:md5 s))                   ; "353aadd72abfa2f3b6dcd9a6618aae6d"
+(with-open-file (s "~/xyzzy.exe" :encoding :binary)
+  (si:md5 s))
+;=> "383856b0757b0285240408b2800e1600"
+
 
 ;; 精度の違いなのか
 (list (si:performance-counter)
@@ -3737,3 +3738,150 @@ With prefix argument UNQUOTEP, unquote the region."
             :if-does-not-exist nil :verbose nil :print nil))))
 ;; USBからの起動に使えそう
 ;; (add-hook '*post-startup-hook* 'load-xyzzyrc)
+
+#|
+(symbol-describe 'ed::search)
+=> ("search" #<package: editor> nil nil (editor::minibuffer-history-variable *minibuffer-search-string-history*))
+
+先に'user::searchが定義されると
+名前が衝突するためexportできません: lisp::search
+
+先に'lisp::searchを定義すると
+(symbol-package 'user::search)	; #<package: lisp>
+
+->シンボルの共有?
+(package-use-list :user)	; (#<package: lisp> #<package: editor>)
+|#
+;; (load-library "cmu_search")
+;(load-library "corman_search")
+
+;; cmu_loop より性能がいいみたい
+;; 今のcmuclのloop移植したら便利かな？
+;; http://homepage1.nifty.com/bmonkey/lisp/ :xyzzy/loop.lzh
+;; (defun install-loop () (trap-errors (load-library "loop") (use-package "loop")))
+;; (add-hook '*post-startup-hook* 'install-loop)
+(require "cmu_loop")
+#|
+siteinit に書いておくと動作が変。
+初回ダンプ時は問題なし、起動2回目かおかしくなる -> ダンプのためには siteinit を読み込んでいるから？
+(si:dump-image-path) に siteinit の内容が入っているんだろう
+
+si:*trace-on-error* によると、
+関数(clause)内にて
+(gethash :with loop::*loop-clauses*)
+がnil;nilを返すからエラーを投げるらしい
+
+106,123行目の (mapc~ ) あたりがあやしい。2度目は初期化されてないとか?
+
+[追記] 2009-03-19T05:38:12+09:00
+ビンゴ。
+
+ハッシュテーブルを使う変数2つ (*loop-clauses*,*for-as-subclauses*) がダ
+ンプファイルから読み込まれる場合、*なぜか*
+(gethash *loop-keyword* *loop-clauses*) が nil になる。ハッシュに要素は
+入っているはずなのに。仕方ないから、起動時にハッシュの初期化をするように変更。
+ただし、純 LISP ファイルとしては行儀が悪いので (editor パッケージを使うから)
+なるべく .xyzzy に放り込むようにしましょう。
+
+|#
+
+;; xyzzy@wine対策
+(when (string-match "^Z:/" (si:system-root))
+  (cd (si:system-root))
+  ;; バックアップのパスが調子悪いので
+  (setq ed::*backup-directory* nil))
+
+
+;; PowerShell を使ってみる (2011-09-20T23:24:43+09:00)
+;(setq *eshell* "powershell.exe")
+;(setq *eshell* "cmd.exe")
+
+;; quickrun がやりたかったんだと思う (2015-02-25)
+
+(defun run-vc ()
+  (interactive)
+  (launch-application "cmd /k C:/PROGRA~2/MICROS~1.0/VC/VCVARS~1.BAT x86"))
+
+(defun run-vc64 ()
+  (interactive)
+  (launch-application "cmd /E:on /V:on /T:0E /k C:/PROGRA~2/MIA713~1/Windows/v7.1/Bin/SetEnv.Cmd /x64"))
+
+(defun run-mingw ()
+  (interactive)
+  (launch-application "C:/MinGW/msys/1.0/msys.bat"))
+
+(defun run-mingw64 ()
+  (interactive)
+  (launch-application "cmd /k C:/MinGW64/mingwvars.bat"))
+
+(defun run-powershell ()
+  (interactive)
+  (launch-application "powershell.exe"))
+
+(defparameter *apps*
+  '(("Windows PowerShell" . "powershell.exe")
+    ("Visual Studio 2010" . "C:/PROGRA~2/MICROS~1.0/VC/VCVARS~1.BAT")
+    ("MinGW64" . "C:/MinGW64/mingwvars.bat")))
+
+(defun launch-application* (app)
+  (interactive
+      (list
+       (completing-read "%% " *apps* :case-fold t :must-match t)))
+  (let ((program (cdr (assoc app *apps* :test #'equal))))
+    (when program
+      (launch-application (format nil "cmd /k \"~a\"" program)))))
+
+(defun run-program ()
+  (interactive)
+  (popup-list '("C:/home/Visual Studio 2008 コマンド プロンプト.lnk"
+                "C:/borland/setbcc.bat"
+                "C:/msys/1.0/msys.bat"
+                "C:/MinGW/setmingw.bat"
+                "C:/PROGRA~1/GCL-26~1.7-A/bin/gcl.bat"
+                "C:/usr/local/lispbox-0.7/lispbox.bat")
+              #'(lambda (sym)
+                  (shell-execute sym (default-directory)))))
+
+;; コンソールを使いやすくする
+;; nyacus はバッファ上ではうまく動作しないので注意
+(defvar *ckw-path* (merge-pathnames "bin/ckw.exe" (si:system-root)))
+(defun run-nyacus&ckw-console ()
+  (interactive)
+  (let ((*eshell* *ckw-path*))
+    (run-console)))
+;(global-set-key '(#\C-x #\r #\n) 'run-nyacus&ckw-console)
+;; (setq *eshell* "bash -i")
+;; (setq *eshell* "cmd.exe")
+
+;; 外部コマンドのファイル名だけわかれば、
+;; (shell-execute *pathname*) 以外はマクロでまとめられそうだ
+;; 起動中のEmacsに渡したい(emacsclient?)
+(defvar *emacs-path* "C:/home/emacs/22.1/bin/runemacs.exe")
+(defun run-emacs (&optional file)
+  "Emacs を起動します。
+編集中のファイルを引数に与えることもできます。"
+  (interactive (list (when *prefix-args*
+                       (read-exist-file-name "To emacs: "
+                                             :default (get-buffer-file-name)))))
+  (shell-execute *emacs-path* (cwd) (and file (get-short-path-name file))))
+;(global-set-key '(#\C-x #\r #\e) 'run-emacs)
+
+(defun grep-cmucl (str)
+  (interactive "sGrep CMUCL: " :default0 (current-word t))
+  (ed::scan-files str "*.lisp"
+                  '("C:/home/lxuser/src/cmucl-src-2008-08.tar.bz2/src/code/")))
+
+;; Filer
+(defun filer-open-p ()
+  "ファイラが開いているならばtを返す."
+  (ignore-errors (progn
+                   ;; 環境に影響のない filer-* 系の関数ならば何でもいい
+                   (filer-modal-p)
+                   t)))
+
+(setq *grep-directory-name-hook*
+      #'(lambda () (when (filer-open-p) (filer-get-directory))))
+
+;; 特殊文字
+;(require "iso8859-1")
+; C-x 8 *
