@@ -21,7 +21,6 @@ LISP風軽量スクリプト言語 newLISP を編集するための簡単なメジャーモードです
 ### インストール
 
 (require "newlisp")
-(pushnew '("\\.lsp$" . newlisp-mode) *auto-mode-alist* :test #'equal)
 ;; プロセス起動時の引数指定 (お好みで)
 (setq *newlisp-switches* "-C -s10000")
 
@@ -582,5 +581,7 @@ ARGSを追加の引数として指定することも出来ます."
 #|
 (newlisp-eval-string "(+ 3 7)") ;=> "10"
 |#
+
+(pushnew '("\\.lsp$" . newlisp-mode) *auto-mode-alist* :test #'equal)
 
 ;;; newlisp.l ends here
