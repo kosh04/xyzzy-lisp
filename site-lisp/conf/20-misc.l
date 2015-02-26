@@ -84,7 +84,7 @@
 ;; (global-set-key '(#\ESC #\SPC) 'delete-indentation)
 
 ;; メニューバーに[バッファ(B)]を追加する
-(require "menubar")
+;(require "menubar")
 
 (defun add-menu-user-init ()
   (let ((edit-menu (get-menu *app-menu* 'ed::edit)))
@@ -108,12 +108,8 @@
 (require "blowfish/readme_l")
 
 ;; ピコカキコ用
+;; winamp.l と MMLプラグイン <http://3ml.jp/4/4mlplug.html> があれば再生もできる
 (pushnew '("\\.fml$" . c-mode) *auto-mode-alist* :test #'equal)
-;; (global-set-key #\F11 'winamp::Stop-button)
-;; (global-set-key #\F12 'winamp::Play-track)
-(defun mml-play-file (file)
-  (interactive
-      (list (read-exist-file-name "MML: " :default (get-buffer-file-name))))
-  (shell-execute "C:/Program Files/Winamp/winamp.exe" nil file))
 
+;; re-builder
 (require "re-builder")

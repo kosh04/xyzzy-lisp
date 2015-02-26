@@ -47,8 +47,6 @@
 (add-hook '*php-mode-hook* 'php-user-hook)
 
 ;; Batch file (bat-mode)
-;; (export 'ed::bat-mode "ed")
-;; (autoload 'ed::bat-mode "bat-mode" t nil)
 (require "bat-mode")
 (pushnew '("\\.bat$" . bat-mode) *auto-mode-alist* :test 'equal)
 (pushnew '("\\.cmd$" . bat-mode) *auto-mode-alist* :test 'equal)

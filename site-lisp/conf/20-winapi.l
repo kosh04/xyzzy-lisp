@@ -54,7 +54,17 @@
                    #'(lambda () (and (topmost-xyzzy-p) :check)))))
 (add-hook '*init-app-menus-hook* 'add-menu-topmost)
 
+;; winamp
 (require "winamp")
-(defun winamp-now-playing ()
+
+(defun winamp-play-music (file)
+  "FILEÇwinampÇ≈çƒê∂ÇµÇ‹Ç∑."
+  (interactive "fPlay winamp: ")
+  (shell-execute (merge-pathnames "winamp.exe" winamp::*winamp-path*) nil file))
+
+(defun winamp::now-playing ()
   (interactive)
   (message "~A" (winamp::get-title-playing)))
+
+;; (global-set-key #\F11 'winamp::Stop-button)
+;; (global-set-key #\F12 'winamp::Play-track)
