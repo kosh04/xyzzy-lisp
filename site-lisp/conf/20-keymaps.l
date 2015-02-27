@@ -31,6 +31,7 @@
 (global-set-key '(#\C-x #\C-.) 'next-buffer)
 (global-set-key '(#\C-x #\C-\,) 'previous-buffer)
 
+(set-extended-key-translate-table exkey-S-backspace #\backspace) ;  Shift+Backspace
 (set-extended-key-translate-table exkey-C-tab #\F20)   ; Ctrl+Tab
 (set-extended-key-translate-table exkey-S-C-tab #\F21) ; Shift+Ctrl+Tab
 

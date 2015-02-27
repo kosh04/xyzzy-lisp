@@ -336,19 +336,6 @@
     (narrow-to-region from to)
     (replace-string "/" "\\" 'noerror)))
 
-;; メニューから文字コード指定して #'revert-buffer
-;; ファイルに関連付けられていないバッファだとエラーになるのは仕様
-;; xyzzy Part7 >>804
-(defun add-menu-revert ()
-  (let ((file-menu (get-menu *app-menu* 'ed::file)))
-    (insert-popup-menu file-menu 8
-                       (make-char-encoding-popup-menu
-                        #'revert-buffer
-                        #'(lambda (e) (and (eq (buffer-fileio-encoding) e) :check)))
-                       "開き直す(&?)")
-    (insert-menu-separator file-menu 8)))
-(add-hook '*init-app-menus-hook* 'add-menu-revert)
-
 (defun tail-f-console (filename)
   (interactive "ftail-f: " :title0 "tail-f")
   (launch-application (format nil "\"~A\" ~A"

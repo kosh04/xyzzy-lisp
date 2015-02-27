@@ -64,6 +64,7 @@ search paths, such as PATH and other similar environment variables.")
 (si:*fset 'point-at-bol #'line-beginning-position)
 (si:*fset 'point-at-eol #'line-end-position)
 
+#+nil
 (defun substring (string start &optional end)
   "emacsŒİŠ·substring(END‚É•‰”‚ğw’è‚Å‚«‚é)"
   (subseq string start (if (and end (minusp end))

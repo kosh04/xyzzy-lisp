@@ -9,12 +9,8 @@
 (defun jump-xyzzy-tag ()
   (interactive)
   (dolist (dir (cons (default-directory) *load-path*))
-    (with-set-directory dir (jump-tag)))
-  #+nil
-  (or (with-set-directory "~/lisp" (jump-tag))
-      (with-set-directory "~/site-lisp" (jump-tag))
-      (jump-tag))
-  )
+    (with-set-directory dir
+      (jump-tag t))))
 
 (defun direct-xyzzy-tag-jump ()
   (interactive)
@@ -28,7 +24,6 @@
     ;; F1 j
     (define-key help-map #\j 'direct-xyzzy-tag-jump)
   (global-set-key '(#\C-x #\j) 'direct-xyzzy-tag-jump))
-
 
 (defun tags-jump (dir)
   (interactive "DTags directory: ")

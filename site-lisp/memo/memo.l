@@ -3885,3 +3885,5 @@ si:*trace-on-error* ‚É‚æ‚é‚ÆA
 ;; “Áê•¶š
 ;(require "iso8859-1")
 ; C-x 8 *
+
+(pushnew '(#\f . emacs-interactive-function-name) *interactive-specifier-alist* :test #'equal)

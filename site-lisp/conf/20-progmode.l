@@ -1,5 +1,18 @@
 ;;; conf.progmode.l --- コード編集系の設定
 
+(defun indent-and-next-line ()
+  "インデントして次の行へ"
+  (interactive)
+  (save-excursion
+    (progn (goto-eol) (delete-trailing-spaces))
+    (when (and mode-specific-indent-command
+               ;; 空行でない場合
+               (not (and (bolp) (eolp))))
+      (funcall mode-specific-indent-command)))
+  (next-line))
+
+(global-set-key #\M-n 'indent-and-next-line)
+
 ;; C (c-mode.l)
 (setq c-indent-level 2
       ;; c-argdecl-indent 5
@@ -58,9 +71,10 @@
 (pushnew '("\\.nse$" . lua-mode) *auto-mode-alist* :test #'equal)
 
 ;; Python-mode
-(autoload 'ed::py-mode "py-mode" t)
-(push '("\\.py$" . ed::py-mode) *auto-mode-alist*)
-(setf (symbol-function 'python-mode) 'ed::py-mode)
+(require "shell")
+(require "py-mode")
+(push '("\\.py$" . py-mode) *auto-mode-alist*)
+;(setf (symbol-function 'python-mode) 'py-mode)
 
 ;; Ruby-mode
 (require "ruby")

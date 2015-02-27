@@ -1,5 +1,9 @@
 ;;; conf.completion.l
 
+;; 補完リストの動作
+(setq *minibuffer-popup-completion-list* :never)
+(setq *popup-completion-list-default* :always)
+
 (defun do-completion-dwim ()
   "キーワードファイルを元に補完する."
   (interactive)

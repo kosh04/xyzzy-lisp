@@ -35,7 +35,6 @@
                                (match-string 0))))
                          :literal t))
         ))))
-(compile 'sgml-unquote-region)
 
 (defun %sgml-quote (input &optional output)
   (do ((c #1=(read-char input nil :EOF) #1#))
@@ -45,7 +44,6 @@
                             :test #'string-equal))
                c)
            output)))
-(compile '%sgml-quote)
 
 (defun sgml-quote (input &optional output)
   (if (stringp input)
@@ -68,11 +66,6 @@
 
 (setf (symbol-function 'html-quote-region) #'sgml-quote-region)
 
-;(require "htmlmode")
-;(require "html+-mode")
-;(define-key *html-mode-map* '(#\C-c #\C-q) 'sgml-quote)
-;(define-key *html+-mode-map* '(#\C-c #\C-q) 'sgml-quote-region)
-
 (defun unhtml (input &optional output)
   (format output "~A"
           (substitute-string
@@ -91,3 +84,7 @@
               (goto-char (point-min))
               (replace-buffer "<[^>]*>" "" :regexp t))))
 
+;(require "htmlmode")
+;(require "html+-mode")
+;(define-key *html-mode-map* '(#\C-c #\C-q) 'sgml-quote)
+;(define-key *html+-mode-map* '(#\C-c #\C-q) 'sgml-quote-region)

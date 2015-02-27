@@ -39,4 +39,4 @@
   (let ((menu (get-menu (get-menu *app-menu* 'ed::tools) :|(>_<)-popup|)))
     (add-menu-item menu nil "マンデルブロット集合(&M)" 'mandelbrot)))
 
-(add-hook '*post-startup-hook* 'add-menu-mandelbrot)
+(add-hook '*init-app-menus-hook* 'add-menu-mandelbrot)

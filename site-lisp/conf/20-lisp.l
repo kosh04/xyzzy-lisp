@@ -8,8 +8,9 @@
 (progn
   (require "destructuring-bind")
   (import 'destructuring:destructuring-bind))
-#+NIL
+
 (require "dbind")
+;(require "defmac")
 
 ;; #?(printf debug)
 (require "pp")
