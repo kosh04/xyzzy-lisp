@@ -9,7 +9,7 @@
   (require "destructuring-bind")
   (import 'destructuring:destructuring-bind))
 
-(require "dbind")
+;(require "dbind")
 ;(require "defmac")
 
 ;; #?(printf debug)

@@ -63,7 +63,8 @@
 (require "bat-mode")
 (pushnew '("\\.bat$" . bat-mode) *auto-mode-alist* :test 'equal)
 (pushnew '("\\.cmd$" . bat-mode) *auto-mode-alist* :test 'equal)
-(push (car (compile-regexp-keyword-list '(("\\<\\(?:SETLOCAL\\|ENDLOCAL\\)\\>" t (:keyword 0))))) *bat-regexp-keyword-list*)
+(push (car (compile-regexp-keyword-list '(("\\<\\(?:SETLOCAL\\|ENDLOCAL\\)\\>" t (:keyword 0)))))
+      *bat-regexp-keyword-list*)
 
 ;; Lua
 (require "lua")

@@ -25,7 +25,7 @@
 
 ;; PDIC
 ;; İ’èƒƒ‚ - http://mux03.panda64.net/diary/20110412.html
-(require "pdic")
+;(require "pdic")
 ;; FIXME: “®ìŠm”F (2015-02-25)
 ;(setq *pdic-path* "C:/Program Files/PDIC_Unicode/PDICU.EXE")
 (defun pdic-lookup (word)
