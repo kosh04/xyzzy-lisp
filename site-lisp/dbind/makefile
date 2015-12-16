@@ -1,0 +1,2 @@
+target := dbind
+include ../makefile
