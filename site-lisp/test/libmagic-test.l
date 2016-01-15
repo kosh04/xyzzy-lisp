@@ -1,5 +1,6 @@
-(load "libmagic.l")
-;;(require "libmagic/autoload")
+;;; libmagic-test.l
+
+(require "libmagic")
 (require "unittest/simple-test")
 
 (deftest magic-buffer ()
@@ -11,7 +12,7 @@
 (deftest magic-file ()
   (magic-file "~/xyzzy.exe")
   => "PE32 executable for MS Windows (GUI) Intel 80386 32-bit"
-  (magic-file "C:/Windows/system32/cmd.exe")
+  (magic-file (si:getenv "ComSpec"))
   => "PE32 executable for MS Windows (console) Intel 80386 32-bit"
   (magic-file ".")
   => "directory"

@@ -93,14 +93,18 @@ ChangeLog
 
 (in-package "user")
 
-(defvar *regex-dll* (merge-pathnames "bin/regex2.dll" (directory-namestring (or *load-pathname* "."))))
-(defvar *magic-dll* (merge-pathnames "bin/magic1.dll" (directory-namestring (or *load-pathname* "."))))
-(defvar *zlib-dll* (merge-pathnames "bin/zlib1.dll" (directory-namestring (or *load-pathname* "."))))
+;; (defvar *regex-dll* (merge-pathnames "bin/regex2.dll" (directory-namestring (or *load-pathname* "."))))
+;; (defvar *magic-dll* (merge-pathnames "bin/magic1.dll" (directory-namestring (or *load-pathname* "."))))
+;; (defvar *zlib-dll* (merge-pathnames "bin/zlib1.dll" (directory-namestring (or *load-pathname* "."))))
+
+(defvar *regex-dll* "regex2.dll")
+(defvar *magic-dll* "magic1.dll")
+(defvar *zlib-dll* "zlib1.dll")
 
 ;; 一応代入なしで読み込んでも使えるが
 ;; モジュールオブジェクトがGCされる可能性がある
-(defvar *regex-module* (si:load-dll-module (namestring *regex-dll*)))
-(defvar *zlie-module* (si:load-dll-module (namestring *zlib-dll*)))
+(defvar *regex-module* (si:load-dll-module *regex-dll*))
+(defvar *zlib-module* (si:load-dll-module *zlib-dll*))
 
 #|
 #include <magic.h>
@@ -186,7 +190,7 @@ int magic_load(magic_t cookie, const char *filename);
 ;;; User Interface
 
 (defvar *magic-database-file*
-  (merge-pathnames "./bin/magic.mgc" (directory-namestring (or *load-pathname* ".")))
+  (merge-pathnames "libmagic/bin/magic.mgc" (directory-namestring (or *load-pathname* ".")))
   "magic データベースファイルのパス名.")
 
 (defvar *magic-flags* nil

@@ -1,18 +1,41 @@
-# Usage: cmd> make target=NAME [XYZZYHOME=%USERPROFILE%/programs/xyzzy]
+# Usage: cmd> make target=NAME [XYZZYHOME=/path/to/xyzzy]
+
+XYZZYHOME ?= $(USERPROFILE)/Dropbox/xyzzy
+
+xyzzy ?= $(XYZZYHOME)/xyzzy.exe
+
+cp ?= copy /y
+rm ?= del /f
 
 ifndef target
 $(error target is not set)
 endif
 
-XYZZYHOME ?= $(USERPROFILE)\Dropbox\xyzzy
-export XYZZYHOME
+#vpath %.l  $(target)
+#vpath %.lc $(target)
 
-xyzzy ?= $(XYZZYHOME)\xyzzy.exe
+COMPILE.l = $(xyzzy) -q -trace -I . -l batch-byte-compile.l
+
+.PHONY: compile test %-test install uninstall clean
 
 default: compile
 
-.PHONY: compile test install uninstall clean
+compile: $(target).lc
 
-compile $(target).lc: $(target).l
-compile test install uninstall clean:
-	$(xyzzy) -q -trace -l batch-make.l -e '(batch-make "$@" "$(target)")'
+%.lc: %.l
+	$(COMPILE.l) $<
+
+test:
+	$(xyzzy) -q -trace -I . -l test/$(target)-test.l -f run-tests -kill
+
+%-test: test/%-test.l
+	$(xyzzy) -q -trace -I . -load batch-test.l $<
+
+install: $(target).lc
+	$(cp) $(target).lc $(XYZZYHOME)/site-lisp
+
+uninstall:
+	$(rm) $(XYZZYHOME)/site-lisp/$(target).lc
+
+clean:
+	$(rm) $(target).lc

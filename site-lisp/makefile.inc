@@ -19,7 +19,7 @@ default: compile
 
 .PHONY: compile
 compile $(target).lc: $(target).l
-	$(xyzzy) -q -trace -e "(compile-file \"$(target).l\")" -e "(kill-xyzzy)"
+	$(xyzzy) -q -trace -e '(compile-file "$(target).l")' -kill
 
 .PHONY: install
 install: $(target).lc

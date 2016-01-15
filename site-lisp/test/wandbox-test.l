@@ -1,4 +1,6 @@
-(load "wandbox.l")
+;;; wandbox-test.l
+
+(require "wandbox")
 (require "unittest/simple-test")
 
 ;; test assoc
@@ -105,6 +107,15 @@
                  ("compiler-option-raw" . "")
                  ("runtime-option-raw" . "")
                  ("save" . wandbox::false)))
+  => t
+  (alist-subsetp '(("compiler" . "ruby-head"))
+                 (wandbox::build-request-data :name "ruby HEAD"))
+  => t
+  (alist-subsetp '(("compiler" . "mruby-head"))
+                 (wandbox::build-request-data :name "mruby HEAD"))
+  => t
+  (alist-subsetp '(("compiler" . "ruby-head"))
+                 (wandbox::build-request-data :lang "ruby"))
   => t)
 
 (deftest profile ()

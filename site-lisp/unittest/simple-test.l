@@ -694,6 +694,8 @@ Output (*trace-output*):
 
 (defparameter *current-session* nil)
 
+(eval-when (:compile-toplevel :load-toplevel :execute)
+
 (defstruct session
   (report-output (get-report-buffer-stream))
   (pass-count 0)
@@ -721,6 +723,8 @@ Output (*trace-output*):
   (def finished-tests)
   (def current-test)
   (def remaining-tests))
+
+) ;; end eval-when
 
 ;; :: ssn-finished-test = ((TEST (EXAMPLE . FAILURES))...)
 ;; :: ssn-current-test = (TEST FINISHED-EXAMPLES REMAINING-EXAMPLES)

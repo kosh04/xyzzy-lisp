@@ -20,9 +20,10 @@
                 ((equal rule "uninstall")
                  (delete-file dst :if-access-denied :force))
                 ((equal rule "test")
-                 (let ((testfile (concat name "-test.l")))
+                 (let ((testfile (merge-pathnames (concat name "-test.l") name)))
+                   ;; XXX/XXX-test.l
                    (load testfile :verbose t :print t)
-                   ;; TODO: How to detect on test failure
+                   ;; TODO: How to detect on test failure?
                    (run-tests)))
                 ((equal rule "clean")
                  (delete-file src :if-access-denied :force))
@@ -30,6 +31,15 @@
                  (error "Unknown rule: ~a" rule)))))
     (declare (ignore value))
     (when err
-      (msgbox "make fail in [~a ~a]: ~a" rule name err))
-    (kill-xyzzy (if err nil t))
-    t))
+      (format *debug-output* "make fail in [~a ~a]: ~a" rule name err)
+      (format *debug-output* "=== *Trace Output* ===%~a"
+              (save-excursion
+                (set-buffer "*Trace Output*")
+                (buffer-substring (point-min) (point-max)))))
+    (when (and (equal rule "test")
+               (null err))
+      (format *debug-output* "=== *Test Results* ===~%~a"
+              (save-excursion
+                (set-buffer "*Test Results*")
+                (buffer-substring (point-min) (point-max)))))
+    (kill-xyzzy (if err nil t))))

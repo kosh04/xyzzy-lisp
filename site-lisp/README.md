@@ -37,6 +37,18 @@ xyzzy用に自作したライブラリや設定ファイルを置いています。
 他にもあるかも
 
 
+## テスト
+
+一部のライブラリを単体テストできるように試験的に改良 [2015-02-25]
+
+- [unittest/simple-test.l](https://github.com/xyzzy-022/xyzzy/blob/develop/unittest/simple-test.l) : xyzzy-022 の成果物を間借り
+  - テストの使い方は [xyzzy/unittest/README.md](https://github.com/xyzzy-022/xyzzy/blob/develop/unittest/README.md) を参照
+- Makefile : 使い方はココを参照
+- batch-make.l
+- batch-byte-compile.l
+- test/XXX-test.l
+
+
 ## 設定ファイル
 
 - `init.l` - ここから

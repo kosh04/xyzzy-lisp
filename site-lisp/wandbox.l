@@ -30,7 +30,7 @@
    #:compile-file
    #:compile-region
    #:compile-buffer
-   #:*base-url*
+   #:+base-url+
    #:*compilers*
    #:*profiles*
    #:*precompiled-hook*
@@ -70,6 +70,9 @@
                      )))
   json)
 
+(defun http-request (method url data &key key headers)
+  #-xyzzy (flexi-streams:octets-to-string (drakma:http-request url)))
+
 (defun fetch-file (filename)
   (labels ((echo (input &optional output)
              (loop
@@ -107,33 +110,35 @@
     obj))
 
 ;; API
-(defconstant *base-url* "http://melpon.org/wandbox")
+(defconstant +base-url+ "http://melpon.org/wandbox")
 
 ;; TODO: BaseUrlをAPI定義時に固定させるかどうか
-(defmacro define-api-method (name &key method path headers sync)
-  (let ((#1=#:url (concat (remove-trail-slash *base-url*) path))
-        (#2=#:fname (intern (format nil "api-~a" name))))
-    `(defun ,#2# (&key data (sync ,sync) onsuccess onfailure
-                       (key 'msxml:xhr-response-text))
-       (if sync
-           (msxml:xhr-request       ,method ,#1# data
-                                    :headers ,headers
-                                    :key key)
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defmacro define-api-method (name &key method path headers sync)
+    (let ((#1=#:url (concat (remove-trail-slash +base-url+) path))
+          (#2=#:fname (intern (format nil "api-~a" name))))
+      `(defun ,#2# (&key data (sync ,sync) onsuccess onfailure
+                         (key 'msxml:xhr-response-text))
+         (if sync
+             (msxml:xhr-request       ,method ,#1# data
+                                      :headers ,headers
+                                      :key key)
            (msxml:xhr-request-async ,method ,#1# data
                                     :headers ,headers
                                     :key key
                                     :onsuccess onsuccess
                                     :onfailure onfailure)))))
 
-(define-api-method list-compilers
-  :method "GET"
-  :path "/api/list.json"
-  :sync t)
-
-(define-api-method compile
-  :method "POST"
-  :path "/api/compile.json"
-  :headers '(:Content-Type "application/json"))
+  (define-api-method list-compilers
+    :method "GET"
+    :path "/api/list.json"
+    :sync t)
+  
+  (define-api-method compile
+    :method "POST"
+    :path "/api/compile.json"
+    :headers '(:Content-Type "application/json"))
+  )
 
 ;; (define-api-method permalink ()
 ;;   :method "GET"
@@ -158,7 +163,7 @@
 
 
 (defvar *compilers*
-  (json:json-decode (api-list-compilers)))
+  (json:json-decode #.(api-list-compilers)))
 
 ;; Profiles
 (defvar *profiles* '()
@@ -281,12 +286,10 @@
                                 (when code (with-input-from-string (s code)
                                              (scan-profile s))))
                             #'option-around-code
-                            ;#'(lambda (&rest p &key lang) (when lang (find-profile :lang lang)))
-                            #'(lambda (&rest p &key name)
-                                (when name (or (find-profile :name name)
-                                               (find-profile :nickname name))))
-                            #'(lambda (&rest p &key lang)
-                                (when lang (find-profile :lang lang)))
+                            #'(lambda (&key name lang &allow-other-keys)
+                                (cond (name (or (find-profile :name name)
+                                                (find-profile :nickname name)))
+                                      (lang (find-profile :lang lang))))
                             #'(lambda (&rest p)
                                 other-options))))))
 
@@ -374,9 +377,6 @@
                                 (format t "~{~s~^ ;~%~}"
                                         (multiple-value-list ,form)))))))
 
-#+xyzzy
-(define-key spec-map #\C-e 'wandbox:eval-last-sexp)
-
 (defun read-profile (&optional (key :name))
   (let* ((items (mapcar #'(lambda (x) (getf x key))
                         *profiles*))
@@ -393,10 +393,11 @@
 (defun compile-region (from to)
   "指定したリージョンをコンパイルします."
   (interactive "r")
-  (let ((profile (or (buffer-profile)
-                     (find-profile :ext (pathname-type (get-buffer-file-name)))
-                     (read-profile)))
-        (code (buffer-substring from to)))
+  (let* ((path (get-buffer-file-name))
+         (profile (or (buffer-profile)
+                      (and path (find-profile :ext (pathname-type path)))
+                      (read-profile)))
+         (code (buffer-substring from to)))
     (apply #'wandbox:compile :code code profile)))
 
 (defun compile-buffer ()
