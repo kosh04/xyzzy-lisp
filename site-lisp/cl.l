@@ -200,19 +200,17 @@ If such a character does not exist, nil is returned."
         `(unless ,test-form (error "Assertion failed: ~A" ',test-form))
         `(unless ,test-form (error ,msg ,@args)))))
 
+(export '(read-sequence))
 (defun read-sequence (sequence stream &key start end)
   (declare (ignore start end))
   (or end (setq end (length sequence)))
   (do ((i (or start 0) (1+ i))
        (c #1=(read-char stream nil :eof) #1#))
       ((or (eq c :eof) (<= end i))
+       (if (characterp c)
+           (unread-char c stream))
        (return i))
     (setf (aref sequence i) c)))
-
-;; (defparameter *data* (make-array 15 :initial-element nil))
-;; (values (read-sequence *data* (make-string-input-stream "test string")) *data*)
-;; => 11, #(#\t #\e #\s #\t #\SPC #\s #\t #\r #\i #\n #\g nil nil nil nil)
-
 
 
 (setf (get 'progv 'ed:lisp-indent-hook) 2)
