@@ -7,7 +7,7 @@
 ;;
 ;; ‚ ‚­‚Ü‚Å xyzzylisp <-> elisp ‚Ì•Ï”AŠÖ”‚Ì‘Î‰•\
 ;; #\a <-> 97 ‚È‚Ç•¶šŒ^‚Ìl—¶‚Í‚µ‚È‚¢
-;; See ~/site-lisp/katex/emacs.l
+;; See katex/emacs.l
 
 ;; ’Ç‰Áî•ñ : CL->elisp
 ;; http://clocc.cvs.sourceforge.net/clocc/clocc/src/cllib/elisp.lisp?view=markup

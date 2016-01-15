@@ -25,6 +25,8 @@
 (defun patch-mode ()
   (interactive)
   (toggle-read-only t)
+  (setq buffer-mode 'patch-mode
+        mode-name "Patch")
   (make-local-variable 'regexp-keyword-list)
   (setq regexp-keyword-list *patch-mode-keyword-list*))
 

@@ -317,6 +317,7 @@ ARGS‚ğ’Ç‰Á‚Ìˆø”‚Æ‚µ‚Äw’è‚·‚é‚±‚Æ‚ào—ˆ‚Ü‚·."
 (unless *newlisp-mode-syntax-table*
   (setq *newlisp-mode-syntax-table* (make-syntax-table))
   (copy-syntax-table *lisp-mode-syntax-table* *newlisp-mode-syntax-table*)
+  (set-syntax-symbol *newlisp-mode-syntax-table* #\\)
   (set-syntax-match *newlisp-mode-syntax-table* #\{ #\})
   ;; Œø‚¢‚Ä‚¢‚È‚¢‹C‚ª‚·‚é...
   (set-syntax-start-comment *newlisp-mode-syntax-table* #\# nil)

@@ -38,8 +38,9 @@
   (loop
     ;; 末尾の改行も考慮するならread-lineは多値でとるべき
     (multiple-value-bind (line missing-newline-p)
-        (read-line input nil :EOF)
-      (when (eq line :EOF) (return))
+        (read-line input nil #1='#:EOF)
+      (message "Read: ~S" (list line missing-newline-p))
+      (when (eq line #1#) (return))
       (princ line output)
       (unless missing-newline-p (terpri output)))))
 
@@ -210,7 +211,14 @@
                                 output-stream))
 (setf (symbol-function 'binary-string) #'map-internal-to-binary)
 
-(setf (symbol-function 'hash->list) #'make-list-from-keyword-table)
+;;(setf (symbol-function 'hash->list) #'make-list-from-keyword-table)
+(setf (symbol-function 'hash-keys) #'make-list-from-keyword-table)
+
+(defun hash->alist (hash &aux acc)
+  (maphash #'(lambda (key value)
+               (push (cons key value) acc))
+           hash)
+  acc)
 
 (defun sha1-file (pathspec)
   (with-open-file (s pathspec :encoding :binary)
@@ -219,3 +227,22 @@
 (defun md5-file (pathspec)
   (with-open-file (s pathspec :encoding :binary)
     (si:md5 s)))
+
+(defun radix (num &optional (base 10))
+  "数値NUMを基数BASEで表示します."
+  #+nil
+  (let ((*print-base* base)
+        (*print-radix* t))
+    (princ-to-string num))
+  (format nil "#~Dr~:@(~VR~)" base base num))
+
+;; 日付を36進数で表示
+;; (radix (get-universal-time) 36)
+;; => "#36r1OEMNOZ"
+;; (iso8601-date (read-from-string *))
+;; => "2015-10-06T13:53:35+09:00"
+
+;; http://lisptips.com/post/43404489000/the-tree-walkers-of-cl
+(defun walk-tree (fn tree)
+  "The tree-walkers by Fn."
+  (subst-if t (lambda (&rest args) nil) tree :key fn))

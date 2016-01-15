@@ -41,7 +41,6 @@
   (eq (peek-char nil input-stream nil :eof) :eof))
 
 ;; à¯êîä‘à·Ç¢
-(si::defun-builtin char-before (point &optional not-used))
 (si::defun-builtin track-popup-menu (menu &optional any))
 
 ;;; buf-menu.l
@@ -88,6 +87,40 @@
 
 (setf (get 'ed::*auto-save-session-file* 'message-documentation) "Session auto save")
 (setf (get 'si:*trace-on-error* 'message-documentation) "Trace on error")
+
+(defun self-insert-command (&optional (arg 1))
+  (interactive "*p")
+  (when (pre-selection-p)
+    (delete-region (selection-mark) (selection-point))
+    (stop-selection))
+  (and abbrev-mode
+       (not (bobp))
+       (not (syntax-word-p *last-command-char*))
+       (syntax-word-p (preceding-char))
+       (expand-abbrev))
+  (cond (overwrite-mode
+         (overwrite-char *last-command-char* arg))
+        ((and (or (syntax-close-p *last-command-char*)
+                  (syntax-close-tag-p *last-command-char*)
+                  (syntax-math-p *last-command-char*)
+                  (syntax-string-p *last-command-char*))
+              (char= (following-char) *last-command-char*))
+         ;; skip insert on close parentheses or other match chars
+         (forward-char arg))
+        (t
+         (insert *last-command-char* arg)))
+  (and (interactive-p)
+       (not *executing-macro*)
+       (or (syntax-close-p *last-command-char*)
+           (syntax-close-tag-p *last-command-char*)
+           (syntax-math-p *last-command-char*))
+       (save-excursion
+         (forward-char -1)
+         (and (goto-matched-parenthesis)
+              (ed::show-matched-parenthesis))))
+  (and auto-fill *auto-fill-hook
+       (funcall *auto-fill-hook *last-command-char*))
+  t)
 
 ;;; buffer.l
 (defun revert-buffer-normal ()
