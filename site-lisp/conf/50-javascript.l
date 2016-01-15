@@ -7,7 +7,8 @@
 (define-key *javascript-mode-map* #\Tab 'javascript-indent-line)
 (define-key *javascript-mode-map* #\M-Tab 'ed::javascript-completion)
 (define-key *javascript-mode-map* #\C-\/ 'undo)
-;; (define-key *javascript-mode-map* '(#\C-c #\C-i) 'ed::javascript-completion)
+#+nil (define-key *javascript-mode-map* '(#\C-c #\C-i) 'ed::javascript-completion)
+(define-key *javascript-mode-map* '(#\C-x #\t) nil) ; 'javascript-yank-from-template
 
 ;(set-syntax-string ed::*javascript-mode-syntax-table* #\/)
 ;(push '("\\.js$" . java-mode) *auto-mode-alist*)

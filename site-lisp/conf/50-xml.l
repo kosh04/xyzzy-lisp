@@ -4,12 +4,18 @@
 (use-package 'xml)
 (require "xml/xhtml")
 
+;; use html+
+(setq *auto-mode-alist*
+      (delete (cons xml::*xhtml-suffix* 'xml-mode)
+              *auto-mode-alist* :test #'equal))
+
 (pushnew '("\\.jnlp$" . xml-mode) *auto-mode-alist* :test #'equal)
 (pushnew '("\\.manifest$" . xml-mode) *auto-mode-alist* :test #'equal)
 (pushnew '("\\.jff$" . xml-mode) *auto-mode-alist* :test #'equal) ; JFLAP
 (pushnew '("\\.webarchivexml$" . xml-mode) *auto-mode-alist* :test #'equal)
 (pushnew '("\\.wsf$" . xml-mode) *auto-mode-alist* :test #'equal)
 (pushnew '("\\.xsd$" . xml-mode) *auto-mode-alist* :test #'equal)
+(pushnew '("\\.mxml$" . xml-mode) *auto-mode-alist* :test #'equal)
 
 (setq xml::*xml-cdata-attribute* '(:foreground 15))
 

@@ -1,7 +1,6 @@
 ;;; conf.libmagic.l
 
-(require "libmagic/autoload")
-;(require "libmagic/libmagic")
+(require "libmagic")
 
 (defun get-file-type (pathname)
   "ファイルタイプを判別する."

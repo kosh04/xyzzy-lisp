@@ -10,7 +10,7 @@
 (require "winapp")
 (require "google-search")
 (require "patch-mode")
-(require "sessionstore")
+;(require "sessionstore")
 (require "json")
 (require "json-encode")
 (require "sgml-util")

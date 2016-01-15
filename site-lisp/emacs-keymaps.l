@@ -34,6 +34,8 @@
 (global-set-key #\M-: 'eval-expression)
 (global-set-key #\M-! 'execute-subprocess)
 (global-set-key #\M-SPC 'just-one-space)
+(global-set-key #\C-M-k 'kill-sexp)
+;(global-set-key #\C-M-h 'backward-kill-sexp)
 ;(substitute-key-definition 'next-virtual-line 'next-line)
 ;(substitute-key-definition 'previous-virtual-line 'previous-line)
 (global-set-key #\C-] 'quit-recursive-edit)

@@ -44,7 +44,7 @@
 
 (defun xyzzy-macroexpand-1 (&optional repeatedly)
   (interactive "P")
-  (let* ((*package* (find-package *buffer-package*))
+  (let* ((*package* (find-package (or *buffer-package* *package*)))
          (form (or (read-from-string
                     (save-excursion
                       (buffer-substring (progn

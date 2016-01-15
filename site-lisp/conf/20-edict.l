@@ -21,7 +21,7 @@
   (popup-edict #'lookup-reading-dictionary-selection))
 
 (define-key spec-map #\e 'lookup-current-word)
-(define-key spec-map #\r #'lookup-reading)
+(define-key spec-map #\r 'lookup-reading)
 
 ;; PDIC
 ;; İ’èƒƒ‚ - http://mux03.panda64.net/diary/20110412.html

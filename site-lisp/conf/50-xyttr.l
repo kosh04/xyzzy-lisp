@@ -3,12 +3,6 @@
 (require "xyttr")
 ;(load "~/.xyttr/config.l")
 
-;; Œë”š–h~‚Ì‚½‚ß
-(let ((map xyttr::*xyttr-timeline-keymap*))
-  (undefine-key map #\f)                       ; 'xyttr::toggle-favorite
-  (define-key map #\F 'xyttr::toggle-favorite) ; 'user::xyttr-favorites
-  nil)
-
 (defun xyttr-user-profile (&optional username)
   "ƒ†[ƒU‚ÌƒvƒƒtƒB[ƒ‹‚ğ•\¦‚µ‚Ü‚·."
   (interactive)
@@ -24,6 +18,11 @@
 (define-key xyttr:*xyttr-timeline-keymap* #\F22 'previous-page)
 (define-key xyttr:*xyttr-timeline-keymap* #\O 'xyttr-status)
 (define-key xyttr:*xyttr-timeline-keymap* #\P 'xyttr-user-profile)
+
+;; Œë”š–h~
+(undefine-key xyttr::*xyttr-timeline-keymap* #\f)                       ; 'xyttr::toggle-favorite
+(define-key xyttr::*xyttr-timeline-keymap* #\F 'xyttr::toggle-favorite) ; 'user::xyttr-favorites
+
 
 #|
 (defun xytty-open-link-in-browser ()

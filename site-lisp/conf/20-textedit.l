@@ -76,6 +76,7 @@
 
 ;; Markdown
 (require "markdown")
+(pushnew '("\\.md\\'" . markdown-mode) *auto-mode-alist* :test #'equal)
 ;(pushnew '(markdown-mode nil "<!-- " " -->") comment-mode-alist :test #'equal)
 
 (defun markdown-region (from to &optional view-browser)

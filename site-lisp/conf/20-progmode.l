@@ -24,6 +24,8 @@
       )
 (setq *c-comment-c++-style* t)  ; "// " でコメントアウト(indent-for-comment)
 
+(pushnew '("\\.rc$" . c-mode) *auto-mode-alist* :test #'equal)
+
 ;; C++ (cc-mode.l)
 (setf (symbol-function 'cc-mode) #'c++-mode)
 
@@ -75,11 +77,12 @@
 (require "shell")
 (require "py-mode")
 (push '("\\.py$" . py-mode) *auto-mode-alist*)
-;(setf (symbol-function 'python-mode) 'py-mode)
+(setf (symbol-function 'python-mode) #'py-mode)
 
 ;; Ruby-mode
 (require "ruby")
-(push '("\\.rb$" . ruby-mode) *auto-mode-alist*)
+(pushnew '("\\.rb$" . ruby-mode) *auto-mode-alist* :test #'equal)
+(pushnew '("\\.rake$" . ruby-mode) *auto-mode-alist* :test #'equal)
 (set-syntax-string *ruby-mode-syntax-table* #\/)
 
 ;; Golang-mode
@@ -124,7 +127,3 @@
 
 (require "cmacexp")
 (define-key ed::*c-mode-map* '(#\C-c #\C-e) 'c-macro-expand-region)
-
-;; Linux設定ファイル用
-(pushnew '("\\.conf\\>" . perl-mode) *auto-mode-alist*)
-(setf (symbol-function 'conf-mode) #'perl-mode)

@@ -23,7 +23,7 @@
   (interactive "p")
   (dotimes (_ n)
     (insert #\SPC)))
-(global-set-key #\F22 #'insert-space)
+(global-set-key #\F22 'insert-space)
 ;(define-key *isearch-map* #\F22 #'isearch-self-insert)
 
 ;; timestmp.l
@@ -31,10 +31,15 @@
 ;; http://neta.ywcafe.net/000851.html
 ;; (add-date-format "%Y-%m-%dT%H:%M:%S%#Z") ; •W€?
 ;; (add-date-format "%Y-%m-%d(%a) %H:%M:%S %Z")
+(defconstant +iso8601-format+ "%Y-%m-%dT%H:%M:%S%#Z")
+
+(defun iso8601-date (&optional universal-time)
+  (format-date-string +iso8601-format+ universal-time))
+
 (defun insert-date (&optional self)
   (interactive "p")
   (cond (self (insert-date-string))
-        (:else (insert (format-date-string "%Y-%m-%dT%H:%M:%S%#Z")))))
+        (:else (insert (iso8601-date)))))
 (global-set-key '(#\C-c #\t) 'insert-date)
 
 ;; XTAGS (tags.l)
