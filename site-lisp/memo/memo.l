@@ -58,20 +58,6 @@
 	(old-file (pop si:*command-line-args*)))
     (diff new-file old-file)))
 
-;;; edict.l 便利だなあ
-;;; 英和 (C-c e)
-(lookup-dictionary *edict-dictionary-path* "xyzzydic" "xyzzye2j" "go")
-;; ("1.?に進行する,行く,をしに行く,動く,過ぎる,至る,及ぶ,2.?と書いてある")
-;; 和英 (C-c j)
-(lookup-dictionary *edict-dictionary-path* "xyzzydic" "xyzzyj2e" "犇く")
-;;("v5k,vi) (uk) to clamour" "to crowd" "to jostle")
-;; 熟語、イディオム (C-c i)
-(lookup-dictionary *edict-dictionary-path* "xyzzydic" "xyzzyidi" "lookup")
-;; ("adj-pn) reverse lookup (e.g. dictionary, address resolution, etc." "adj-pn) reverse lookup (e.g. dictionary, address resolution, etc." "n) lookup, e.g., in a dictionary, address list, etc." "n) lookup, e.g., in a dictionary, address list, etc.")
-;;; 読み仮名 (C-c r)
-(lookup-dictionary *edict-dictionary-path* "xyzzydic" "xyzzyjrd" "犇く")
-;; ("ひしめく")
-
 (syntax-close-p #\))		; t
 
 (defun usr-tool-bar ()
@@ -257,6 +243,18 @@
 	  (message "expand ~S" env))
       (message "No match environment path")))
 (define-key minibuffer-local-completion-map #\F3 'insert-environment-path)
+
+;; `string-replace-match' がリテラルを受け付けないためダメダメ版
+(defun substitute-env-vars (string &optional when-undefined)
+  "Substitute environment variables refferd to in STRING."
+  (let ((start 0))
+    (while (string-match "\\(?:\\$\\(\\w+\\)\\|%\\(\\w+\\)%\\)" string #?start)
+      (let* ((name (match-string 1))
+             ($name (or (si:getenv name) "")))
+        (setq string (string-replace-match string $name)
+              start (+ (match-beginning 0) (length $name)))))
+    string))
+(substitute-env-vars "%XYZZYHOME%")
 
 (defun make-directory-unless-directory-exists (filename)
   "FILENAME の中に存在しないディレクトリがあればそれを作ります。"
@@ -475,10 +473,11 @@ character."
 
 ;; xyzzy 付属の ftp クライアントの使い方
 (require "wip/ftp")
-(let ((myftp (ftp-connect "sv01.ce.ie.niigata-u.ac.jp" 21)))
-  (ftp-login myftp "t05i280h")
-  (ftp-pwd myftp)
-  (ftp-quit myftp))
+(with-output-to-temp-buffer ("*ftp*")
+  (let ((myftp (ftp-connect "ftp.gnu.org" 21)))
+    (ftp-login myftp "anonymous")
+    (ftp-pwd myftp)
+    (ftp-quit myftp)))
 
 ;; これだとポート番号なしURLで使えないな…
 (progn
@@ -1222,7 +1221,7 @@ character."
 	(funcall ed::build-summary-function))
 
 ;;; なぜかシンボルも文字に変換される
-(split-string 'Kobayashi+Shigeru #\+) ; ("Kobayashi" "Shigeru")
+(split-string '#:Kobayashi+Shigeru #\+) ; ("Kobayashi" "Shigeru")
 
 (defun mark-this-sexp ()
   (interactive)
@@ -3609,23 +3608,6 @@ With prefix argument UNQUOTEP, unquote the region."
       (indent-region (point-min) (point-max)))    
     t))
 
-;; 作りかけ (2012-02-02)
-(defun edict-lookup (word)
-  (interactive "sLookup word: ")
-  (let ((found nil))
-    (handler-case
-        (save-window-excursion
-          (with-output-to-temp-buffer ("*dictionary*")
-            (format t "~a" word)
-            (goto-char (point-min))
-            (lookup-current-word)
-            (setq found t)))
-      (plain-error (c)
-        ;(delete-buffer "*dictionary*")
-        ))
-    ;(if found (popup-string))
-    ))
-
 (defun replace-zenkaku-number ()
   "全角数字を半角に置換する."
   (interactive)
@@ -3887,3 +3869,42 @@ si:*trace-on-error* によると、
 ; C-x 8 *
 
 (pushnew '(#\f . emacs-interactive-function-name) *interactive-specifier-alist* :test #'equal)
+
+(defun ed::toggle-minor-mode-map (mode map)
+  (if mode
+      (set-minor-mode-map map)
+    (unset-minor-mode-map map)))
+
+;; view-mode はマイナーモードで使いたい
+(defvar-local view-mode nil)
+
+(defun view-minor-mode (&optional (arg nil sv))
+  (interactive "p")
+  (ed::toggle-mode 'view-mode arg sv)
+  (ed::toggle-minor-mode-map view-mode *view-mode-map*)
+  (update-mode-line t))
+
+(pushnew '(view-mode . "View") *minor-mode-alist* :key #'car)
+
+;; 文字列からキーワード生成が微妙に異なる
+(intern "rest" :keyword)
+;;=> #+xyzzy rest: ; :external
+;;=> #+common-lisp :|rest| ; nil
+
+;; つまり、こういうコードが成立しない
+(getf '(:foo 10 :bar 20 :baz 30) (intern "bar" :keyword))
+;;=> #+xyzzy 20
+;;=> #+common-lisp NIL
+
+;; while/until が一回余分に実行される
+;; loop.l のバグ？
+(with-input-from-string (input "XYZZY")
+  (loop
+    for ch = (read-char input nil)
+    ;;until (eq ch nil)
+    while (characterp ch)
+    collect ch))
+;;=> (#\X #\Y #\Z #\Z #\Y nil)
+
+;; xyzzy 0.2.2.246 ならば DebugView にログ出力することが可能
+(format *debug-output* "HELLO")

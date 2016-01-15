@@ -285,3 +285,15 @@ between -e end the quoted command string.
 (putenv "FOO" "newLISP")        ; t
 (si:getenv "FOO")               ; nil ?
 
+;; 自動テスト用にコンソール出力が出来ると便利
+(c:*define-c-type c:void* FILE)
+(c:*define-dll-entry BOOL AllocConsole () "kernel32")
+(c:*define-dll-entry FILE freopen (c:char* c:char* FILE) "msvcrt")
+(AllocConsole)
+;; stdin/stdout の値を調べる関数ある？
+(freopen "CONIN$" "r+t" stdin)
+(freopen "CONOUT$" "w+t" stdout)
+(freopen "CONOUT$" "r+t" stderr)
+
+(c:*define-dll-entry BOOL AttachConsole (DWORD) "kernel32")
+(AttachConsole -1)

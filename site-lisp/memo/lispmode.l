@@ -65,3 +65,14 @@
 (defun run-lispbox ()
   (interactive)
   (shell-execute "C:/usr/local/lispbox-0.7/lispbox.bat"))
+
+(let ((ht (make-hash-table)))
+  (setf (gethash 'foo ht) 1)
+  (setf (gethash 'bar ht) 2)
+  (loop for key
+    being the hash-keys
+    in ht
+    using (hash-value value)
+    collect (cons key value)))
+;;=> ((BAR . 2) (FOO . 1))
+;; xyzzy ‚¾‚ÆƒGƒ‰[ (car 2)
