@@ -214,11 +214,19 @@
 ;;(setf (symbol-function 'hash->list) #'make-list-from-keyword-table)
 (setf (symbol-function 'hash-keys) #'make-list-from-keyword-table)
 
-(defun hash->alist (hash &aux acc)
-  (maphash #'(lambda (key value)
-               (push (cons key value) acc))
-           hash)
-  acc)
+(defun hash->alist (hash)
+  (let (alist)
+    (maphash #'(lambda (key value)
+                 (push (cons key value) alist))
+             hash)
+    alist))
+
+(defun hash->plist (hash)
+  (let (plist)
+    (maphash #'(lambda (key value)
+                 (setf (getf plist (intern key :keyword)) value))
+             hash)
+    plist))
 
 (defun sha1-file (pathspec)
   (with-open-file (s pathspec :encoding :binary)
@@ -246,3 +254,13 @@
 (defun walk-tree (fn tree)
   "The tree-walkers by Fn."
   (subst-if t (lambda (&rest args) nil) tree :key fn))
+
+(defun fetch-url (url)
+  "URL‚Ì’†g‚ğ•¶š—ñ‚Æ‚µ‚Äæ“¾‚µ‚Ü‚·."
+  (labels ((vec2str (vector)
+             (map 'string #'code-char vector)))
+    (vec2str
+     (let ((xhr (ole-create-object "MSXML2.XMLHTTP")))
+       (ole-method xhr 'open "GET" url nil) ;; blocking!
+       (ole-method xhr 'send nil)
+       (ole-method xhr 'responseBody)))))

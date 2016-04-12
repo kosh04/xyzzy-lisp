@@ -87,13 +87,6 @@
                '(:b 2 :a 1))
   => t)
 
-(deftest api-compiler-list ()
-  "Test /api/list.json"
-  (stringp (wandbox::api-list-compilers))
-  => t
-  (listp (json:json-decode (wandbox::api-list-compilers)))
-  => t)
-
 (deftest request-data ()
   "Test build-request-data."
   (alist-equal (wandbox::build-request-data
@@ -156,6 +149,17 @@
   "Test compile."
   (alist-equal (wandbox :compiler "gcc-head" :code "int main(){ return 1; }" :sync t)
                '(("status" . "1")))
+  => t)
+
+(deftest other-server ()
+  "Test server wnadbox.fetus.jp"
+  (alist-equal (wandbox :compiler "php-7.0.0"
+                        :code "<?php echo phpversion();"
+                        :server-name "fetus"
+                        :sync t)
+               '(("program_message" . "7.0.0")
+                 ("program_output" . "7.0.0")
+                 ("status" . "0")))
   => t)
 
 ;;(run-tests)

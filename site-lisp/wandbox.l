@@ -30,8 +30,6 @@
    #:compile-file
    #:compile-region
    #:compile-buffer
-   #:+base-url+
-   #:*compilers*
    #:*profiles*
    #:*precompiled-hook*
    ))
@@ -39,39 +37,12 @@
 
 (in-package :wandbox)
 
-;; Utility
-(defun lookup (item alist &key (test #'equal))
-  (cdr (assoc item alist :test test)))
+(eval-when (:compile-toplevel :load-toplevel :execute)
 
-;; JSON のアクセサもどき
-;; - (path json "foo" 1 "bar" 2) => json.foo[1].bar[2]
-;; - (path json '("key" . "value")) => json[key=value]
-(defun path (json &rest items)
-  (dolist (item items)
-    (setf json (cond ((consp item)
-                      (let ((key (car item))
-                            (value (cdr item)))
-                        (cond ((eq value '*)
-                               ;; (key . *) => $[key=*]
-                               (loop for c in json
-                                     collect (cdr (find key c :key #'car :test #'equal))))
-                              (t
-                               ;; (key . value) => $[key=value]
-                               (find value json
-                                     :key #'(lambda (x)
-                                              (cdr (assoc key x :test #'equal)))
-                                     :test #'string=)))))
-                     ((stringp item)
-                      ;; key => $[key]
-                      (cdr (assoc item json :test #'equal)))
-                     ((integerp item)
-                      ;; num => $[num]
-                      (nth item json))
-                     )))
-  json)
+)
 
-(defun http-request (method url data &key key headers)
-  #-xyzzy (flexi-streams:octets-to-string (drakma:http-request url)))
+;; (defun http-request (method url data &key key headers)
+;;   #-xyzzy (flexi-streams:octets-to-string (drakma:http-request url)))
 
 (defun fetch-file (filename)
   (labels ((echo (input &optional output)
@@ -109,42 +80,6 @@
           (setf (getf obj key) val))))
     obj))
 
-;; API
-(defconstant +base-url+ "http://melpon.org/wandbox")
-
-;; TODO: BaseUrlをAPI定義時に固定させるかどうか
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defmacro define-api-method (name &key method path headers sync)
-    (let ((#1=#:url (concat (remove-trail-slash +base-url+) path))
-          (#2=#:fname (intern (format nil "api-~a" name))))
-      `(defun ,#2# (&key data (sync ,sync) onsuccess onfailure
-                         (key 'msxml:xhr-response-text))
-         (if sync
-             (msxml:xhr-request       ,method ,#1# data
-                                      :headers ,headers
-                                      :key key)
-           (msxml:xhr-request-async ,method ,#1# data
-                                    :headers ,headers
-                                    :key key
-                                    :onsuccess onsuccess
-                                    :onfailure onfailure)))))
-
-  (define-api-method list-compilers
-    :method "GET"
-    :path "/api/list.json"
-    :sync t)
-  
-  (define-api-method compile
-    :method "POST"
-    :path "/api/compile.json"
-    :headers '(:Content-Type "application/json"))
-  )
-
-;; (define-api-method permalink ()
-;;   :method "GET"
-;;   :path "/permlink/:link")
-
-
 (defparameter *response-keywords*
   '(
     ;;"compiler_output"
@@ -159,46 +94,99 @@
     "url"
     ))
 
-;; (defvar *compilers-raw* (wandbox::api-list-compilers))
+(eval-when (:compile-toplevel :load-toplevel :execute)
 
+  ;; JSON のアクセサもどき
+  ;; - (path json "foo" 1 "bar" 2) => json.foo[1].bar[2]
+  ;; - (path json '("key" . "value")) => json[key=value]
+  (defun path (json &rest items)
+    (dolist (item items)
+      (setf json (cond ((consp item)
+                        (let ((key (car item))
+                              (value (cdr item)))
+                          (case value
+                            (*  ;; (key . *) => $[key=*]
+                             (loop for c in json
+                                   collect (cdr (find key c :key #'car :test #'equal))))
+                            (t  ;; (key . value) => $[key=value]
+                             (find value json
+                                   :key #'(lambda (x) (cdr (assoc key x :test #'equal)))
+                                   :test #'equal)))))
+                       ((stringp item)    ;; key => $[key]
+                        (cdr (assoc item json :test #'equal)))
+                       ((integerp item)   ;; num => $[num]
+                        (nth item json))
+                       (t (error "Unknown item: ~a" item)))))
+    json)
 
-(defvar *compilers*
-  (json:json-decode #.(api-list-compilers)))
+  (defun make-profiles (compilers)
+    (labels ((compiler-options (compiler)
+               (labels ((join (list separator)
+                          (format nil (concat "~{~a~^" separator "~}") list)))
+                 (join (loop for s in (path compilers (cons "name" compiler) "switches")
+                             if #3=(path s "default")
+                             collect (if (stringp #3#) #3# (path s "name")))
+                       ",")))
+             (command-extension (x)
+               (let ((cmd (path x "display-compile-command")))
+                 (if (string-match " \\<prog\\.\\([A-Za-z0-9]+\\)\\>" cmd)
+                     (match-string 1)
+                   ""))))
+      (loop for #1=#:compiler in compilers
+            collect `(:lang ,(path #1# "language")
+                      :name ,(path #1# "display-name")
+                      :compiler ,#2=(path #1# "name")
+                      :options ,(compiler-options #2#)
+                      :nickname nil
+                      :ext ,(command-extension #1#)))))
+
+  (defstruct (server
+              (:constructor make-server)
+              (:constructor create-server
+               (name location &aux
+                     (api/list    (format nil "~a/api/list.json" location))
+                     (api/compile (format nil "~a/api/compile.json" location))
+                     (compilers (json:json-decode
+                                 (msxml:xhr-get api/list :key 'msxml:xhr-response-text)))
+                     (profiles (make-profiles compilers)))))
+    "Server information."
+    name
+    location
+    api/list
+    api/compile
+    compilers
+    profiles)
+
+  ) ;; ends eval-when
+
+(defvar *servers*
+  (list
+   #.(create-server "melpon" "http://melpon.org/wandbox"))
+  "利用可能なサーバの一覧")
+
+(defvar *default-server-name* "melpon")
+
+(defun find-server (name)
+  (find name *servers* :key #'server-name :test #'string=))
+
+(defun default-server ()
+  (find-server *default-server-name*))
+
+(defun add-server (name location)
+  (or (find-server name)
+      (push (create-server name location) *servers*)))
 
 ;; Profiles
-(defvar *profiles* '()
+(defvar *profiles* nil
   "Wandbox copmiler profiles (set of property list)")
 
-;; not used yet
-(defstruct compile-params
-  (compiler "" :type string)
-  (options "")
-  (code "")
-  (stdin "")
-  (compiler-option-raw "")
-  (runtime-option-raw "")
-  (save nil :type boole))
+(defun profile-nickname (key item &optional (server (default-server)))
+  (getf (find-profile key item server) :nickname))
 
-(defun make-profiles ()
-  (loop for #1=#:compiler in *compilers*
-        collect `(:lang ,(path #1# "language")
-                  :name ,(path #1# "display-name")
-                  :compiler ,#2=(path #1# "name")
-                  :options ,(compiler-options #2#)
-                  :nickname nil
-                  :ext ,(command-extension #1#))))
-
-(defun command-extension (x)
-  (let ((cmd (path x "display-compile-command")))
-    (if (string-match " \\<prog\\.\\([A-Za-z0-9]+\\)\\>" cmd)
-        (match-string 1)
-      "")))
-
-(defun profile-nickname (key item)
-  (getf (find-profile key item) :nickname))
-
-(defsetf profile-nickname (key item) (nickname)
-  `(let ((#1=#:p (find-profile ,key ,item)))
+(defsetf profile-nickname (key item &optional server) (nickname)
+  `(let ((#1=#:p (if ,server
+                     (find-profile ,key ,item ,server)
+                   (find-profile ,key ,item))))
      (setf (getf #1# :nickname) ,nickname)))
 
 (defun scan-profile (input)
@@ -213,27 +201,14 @@
              (setf (getf params key) val))))
     params))
 
-(defun compiler-options (compiler)
-  (labels ((join (list separator)
-             (format nil (concat "~{~a~^" separator "~}") list)))
-    (join (loop for s in (path *compilers* (cons "name" compiler) "switches")
-                if #3=(lookup "default" s)
-                collect (if (stringp #3#) #3# (lookup "name" s)))
-          ",")))
-
-(defun compiler-exist-p (name)
-  (let ((compiler-names
-         (path *compilers* '("name" . *))))
-    (find name compiler-names :test #'string=)))
-
-(defun find-profile (key item)
-  (find item *profiles*
+(defun find-profile (key item &optional (server (default-server)))
+  (find item (server-profiles server)
         :key #'(lambda (x) (getf x key '#:undef))
         :test #'string-equal))
 
 (defun pretty-print (alist)
   (dolist (key *response-keywords*)
-    (let ((msg (lookup key alist)))
+    (let ((msg (path alist key)))
       (when msg
         (format t "[~a]~%" key)
         (format t "~a~%~%" msg)))))
@@ -247,12 +222,26 @@
 (defun build-request-data-raw (&rest profile
                                &key compiler options code stdin save
                                     compiler-option runtime-option
+                                    server
                                &allow-other-keys)
   (labels ((raw (x)
              (if (consp x) (format nil "~{~a~^~%~}" x) x))
            (boolean (x)
-             (if x 'true 'false)))
-    (unless (compiler-exist-p compiler)
+             (if x 'true 'false))
+           (compiler-exist-p (server name)
+             '(let* ((compiler-names
+                     ;;(path (server-compilers server) '("name" . *))
+                     (loop for c in (server-compilers server)
+                           collect (cdr (find "name" c :key #'car :test #'string=)))
+                     ))
+               (find name compiler-names :test #'string=))
+             (find name (server-compilers server)
+                   :key #'(lambda (c) (cdr (find "name" c :key #'car :test #'string=)))
+                   :test #'string=)
+             ))
+    #+nil ;; FIXME: スロット名(server-name)などは通るのに(server-p)だけがnilを返す場合がある
+    (check-type server server)
+    (unless (compiler-exist-p server compiler)
       (error "Unknown compiler: ~a" compiler))
     ;; NOTE: json-encode accepts only alist (plist unavailable).
     `(("compiler" . ,(or compiler ""))
@@ -268,7 +257,7 @@
 ;; 2. codeからbuffer profileを展開
 ;; 3. 言語指定(lang,name,ext)を展開
 ;; 4. 直接指定(compiler,options等)を展開
-(defun build-request-data (&rest profile)
+(defun build-request-data (&rest profile &key (server (default-server)))
   (labels ((merge-profile (plist &rest functions)
              (reduce #'(lambda (memo f)
                          (merge-plist memo (apply f memo)))
@@ -277,7 +266,7 @@
     (let ((other-options (pick profile
                                :compiler :options :stdin :save
                                :compiler-option :runtime-option)))
-      (apply #'build-request-data-raw
+      (apply #'build-request-data-raw :server server
              (merge-profile profile
                             #'(lambda (&key file &allow-other-keys)
                                 (when file `(:code ,(fetch file))))
@@ -287,30 +276,43 @@
                                              (scan-profile s))))
                             #'option-around-code
                             #'(lambda (&key name lang &allow-other-keys)
-                                (cond (name (or (find-profile :name name)
-                                                (find-profile :nickname name)))
+                                (cond (name (or (find-profile :name name server)
+                                                (find-profile :nickname name server)))
                                       (lang (find-profile :lang lang))))
                             #'(lambda (&rest p)
                                 other-options))))))
 
-(defun post (data &key (sync nil))
-  (api-compile :data (json:json-encode data)
-               :sync sync
-               :key #'(lambda (req)
-                        (json:json-decode (xhr:xhr-response-text req)))
-               :onsuccess #'(lambda (alist)
-                              (let* ((err (lookup "error" alist)))
-                                (cond (err (message "error: ~a" err))
-                                      (:else
-                                       (to-buffer alist)
-                                       (refresh-screen)
-                                       (message "Compile...done")))))
-               ;; FIXME: 要確認-引数の型
-               :oncomplete #'(lambda (res)
-                               (unless (= (xhr:xhr-status res) 200)
-                                 (warn "~D ~A"
-                                       (xhr:xhr-status res)
-                                       (xhr:xhr-status-text res))))))
+(defun post (server data)
+  (let ((url (server-api/compile server))
+        (json (json:json-encode data)))
+    (msxml:xhr-post url json
+                    :headers '(:Content-Type "application/json")
+                    :key #'(lambda (res)
+                             (json:json-decode
+                              (msxml:xhr-response-text res))))))
+
+(defun post-async (server data)
+  (labels ((onsuccess (alist &aux (err (path alist "error")))
+             (format *debug-output* "Wandbox RESPONSE: ~s" alist)
+             (cond (err (message "error: ~a" err))
+                   (t (to-buffer alist)
+                      (refresh-screen)
+                      (message "Compile...done"))))
+           (oncomplele (res)
+             (unless (= (xhr:xhr-status res) 200)
+               (warn "~D ~A"
+                     (xhr:xhr-status res)
+                     (xhr:xhr-status-text res)))))
+    (let ((url (server-api/compile server))
+          (json (json:json-encode data)))
+      (msxml:xhr-post-async url json
+                            :key #'(lambda (res)
+                                     (json:json-decode
+                                      (xhr:xhr-response-text res)))
+                            :headers '(:Content-Type "application/json")
+                            :onsuccess  #'onsuccess
+                            ;;:oncomplete  #'oncomplele
+                            ))))
 
 (defun option-around-code (&rest profile &key code-before code code-after)
   ;; `concat' returns empty string if args nil
@@ -338,8 +340,17 @@
                      compiler-option runtime-option
                      lang name file
                      (save nil)
-                     (sync nil))
-  (post (apply #'build-request-data profile) :sync sync))
+                     (sync nil)
+                     (server-name "melpon")
+                &aux (server (find-server server-name)))
+  (unless server
+    (error "Server not found: ~a" server-name))
+  (let ((param (apply #'build-request-data :server server profile))
+        (post (if sync #'post #'post-async)))
+    (format *debug-output* "Wandbox PROFILE: ~s" profile)
+    (format *debug-output* "Wandbox REQUEST_URL: ~a" (server-location server))
+    (format *debug-output* "Wandbox REQUEST_DATA: ~s" param)
+    (funcall post server param)))
 
 (defmacro eval-with ((&rest options) &body form)
   (declare (indent 1))
@@ -405,18 +416,20 @@
   (interactive)
   (wandbox:compile-region (point-min) (point-max)))
 
-(unless *profiles*
-  (setf *profiles* (make-profiles))
-  (setf (profile-nickname :name "mruby HEAD") "mruby")
-  (setf (profile-nickname :name "erlang HEAD") "erlang")
-  )
-
-(in-package "user")
-
-(defun wandbox (&rest args)
+;;;###autoload
+(defun user::wandbox (&rest args)
   (interactive)
   (if (interactive-p)
       (call-interactively #'wandbox:compile-buffer)
     (apply #'wandbox:compile args)))
+
+(unless *servers*
+  ;;(push #.(create-server "melpon" "http://melpon.org/wandbox") *servers*)
+  (push #.(create-server "fetus" "https://wandbox.fetus.jp") *servers*)
+
+  (let ((s (find-server "melpon")))
+    (setf (profile-nickname :name "mruby HEAD" s) "mruby")
+    (setf (profile-nickname :name "erlang HEAD" s) "erlang"))
+  )
 
 ;;; wandbox.l ends here

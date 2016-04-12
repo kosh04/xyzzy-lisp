@@ -69,6 +69,6 @@
         )
   (run-hooks '*makefile-mode-hook*))
 
-(pushnew '("Makefile" . makefile-mode) *auto-mode-alist* :test #'equal)
-(pushnew '("\\.mak$" . makefile-mode) *auto-mode-alist* :test #'equal)
+(pushnew '("\\<Makefile\\>" . makefile-mode) *auto-mode-alist* :test #'equal)
+(pushnew '("\\.mk$" . makefile-mode) *auto-mode-alist* :test #'equal)
 

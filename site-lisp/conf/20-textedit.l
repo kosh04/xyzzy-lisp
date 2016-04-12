@@ -90,8 +90,7 @@
       (html-mode)
       (insert-buffer-substring buffer from to)
       (change-fileio-encoding encoding)
-      ;; (filter-buffer "C:/home/lxuser/lib/emacs/newlisp/markdown.bat")
-      (filter-buffer "C:/usr/bin/markdown.bat")
+      (filter-buffer "markdown")
       (when view-browser
         (let ((tmpfile (make-temp-file-name "md" "html")))
           (unwind-protect
@@ -99,7 +98,7 @@
                 (write-file tmpfile)
                 (shell-execute tmpfile t))
             ;; markdown-mode.el Ç≈ÇÕÉtÉ@ÉCÉãÇè¡Ç≥Ç»Ç¢ÇÊÇ§Ç…Ç»Ç¡ÇƒÇ¢ÇÈÇ™...
-            (sit-for 0.2)
+            (sit-for 0.5)
             (and (file-exist-p tmpfile)
                  (delete-file tmpfile :if-does-not-exist :skip))))))))
 

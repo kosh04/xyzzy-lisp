@@ -26,7 +26,7 @@ compile: $(target).lc
 	$(COMPILE.l) $<
 
 test:
-	$(xyzzy) -q -trace -I . -l test/$(target)-test.l -f run-tests -kill
+	$(xyzzy) -q -trace -I . -l test/$(target)-test.l -f run-all-tests -kill
 
 %-test: test/%-test.l
 	$(xyzzy) -q -trace -I . -load batch-test.l $<

@@ -39,3 +39,5 @@
 (global-set-key #\F21 'previous-pseudo-frame)
 ;;(global-set-key #\M-Left 'previous-pseudo-frame)
 ;;(global-set-key #\M-Right 'next-pseudo-frame)
+
+(global-set-key '(#\C-x #\*) 'calc)

@@ -2830,72 +2830,6 @@ using those bindings. Each form is evaluated in order."
                            (eq (buffer-local-value buffer 'buffer-mode)
                                'ed::tail-f-mode)))))
 
-;; オレオレsetf定義
-;; 何でもsetfでまとめればいいってものでもないことは分かった
-;; cl-macs.el 参照。
-(defsetf process-filter set-process-filter)
-(defsetf process-sentinel set-process-sentinel)
-(defsetf process-incode set-process-incode)
-(defsetf process-outcode set-process-outcode)
-(defsetf process-eol-code set-process-eol-code)
-
-(defsetf buffer-eol-code (&optional buffer) (code)
-  `(set-buffer-eol-code ,code ,buffer))
-;; (setf (buffer-eol-code) *eol-cr*)
-(defsetf get-buffer-file-name (&optional buffer) (file-name)
-  `(set-buffer-file-name ,file-name ,buffer))
-;; (setf (get-buffer-file-name) "./xyzzy-memo.l")
-(defsetf get-buffer-alternate-file-name set-buffer-alternate-file-name)
-;; (setf (get-buffer-alternate-file-name) "xyzzy-memo.l")
-;; (defsetf ed::find-buffer-colors (buffer) (color)
-;;   `(set-buffer-colors ,color ,buffer))
-;; (setf (ed::find-buffer-colors (selected-buffer)) #(0 #xffffcc))
-(defsetf buffer-fileio-encoding set-buffer-fileio-encoding)
-;; (setf (buffer-fileio-encoding) *encoding-euc-jp*)
-(defsetf get-ime-mode set-buffer-ime-mode)
-
-(defsetf documentation (symbol doc-type) (value)
-  `(si:*putprop ,symbol ,value ,(case doc-type
-                                  (function 'function-documentation)
-                                  (variable 'variable-documentation)
-                                  (t doc-type))))
-
-(defsetf lookup-keymap define-key)
-
-;; Converting CLtL2 to ANSI CL - http://bc.tech.coop/cltl2-ansi.htm
-;; 1) ANSI replaced function get-setf-method with get-setf-expansion.
-;; ANSI renamed get-setf-method-multiple-value to get-setf-expansion.
-;; Note deletion:
-
-(setf (macro-function define-setf-expander) #'define-setf-method)
-(setf (symbol-function 'get-setf-expansion) #'get-setf-method)
-(setf (symbol-function get-setf-expansion) 'get-setf-method-multiple-value) ; ?
-
-(defsetf assoc (key alist) (value)
-  `(let ((#1=#:found (assoc ,key ,alist)))
-     (if #1#
-         (setf (cdr #1#) ,value)
-       (push (cons ,key ,value) ,alist))))
-
-(let ((alist '((a . 10) (b . nil))))
-  (setf (assoc 'a alist) 90
-        (assoc 'b alist) 20
-        (assoc 'c alist) 30)
-  alist)
-;;=>((c . 30) (a . 90) (b . 20))
-
-
-
-set-buffer-fold-type-none       ; 折り返ししない
-set-buffer-fold-type-column     ; 指定位置で折り返し
-set-buffer-fold-type-window     ; ウィンドウ幅で折り返し
-
-set-buffer-fold-type-none-update
-set-buffer-fold-type-column-update
-set-buffer-fold-type-window-update
-set-buffer-fold-width
-(buffer-fold-column)
-
 (defun help-buffer ()
   (buffer-name (get-buffer-create "*Help*")))
 
@@ -2962,23 +2896,6 @@ forward/backwardはほとんど違いがないのに、なぜかbackwardのみエラー
 (convert-encoding-from-internal
  *encoding-sjis* "\x82\xb1\x82\xf1\x82\xc9\x82\xbf\x82\xcd")
 ;=> "こんにちは"
-
-
-;; magic
-(load-library "libmagic")
-
-(magic-file "memo.l")           ; "Lisp/Scheme program text"
-(magic-file "memo.l" :mime-type t) ; "text/x-lisp"
-(magic-file "memo.l" :mime-encoding t) ; "utf-8"
-(magic-file "memo.l" :mime-type t :mime-encoding t)
-(magic-file "C:/home/xyzzy/etc/magic.mgc") ; "magic binary file for file(1) cmd (version 7) (little endian)"
-(magic-file "C:/home/xyzzy/sample.ps") ; "PostScript document text"
-
-(magic-buffer (encode *encoding-default-utf8n* "newLISP の世界へようこそ!!!"))
-"UTF-8 Unicode text, with no line terminators"
-
-(let ((*magic-flags* MAGIC_MIME))
-  (magic-buffer "Yahoo!ジオシティーズ\n")) ; "text/plain; charset=unknown-8bit"
 
 ;; http://geocities.yahoo.co.jp/gl/home_page22/view/20080717/1216263477
 ;; チャンクからの文字列読み出し時(si:unpack-string)に
@@ -3908,3 +3825,31 @@ si:*trace-on-error* によると、
 
 ;; xyzzy 0.2.2.246 ならば DebugView にログ出力することが可能
 (format *debug-output* "HELLO")
+
+;; defstruct / 構造体
+(progn
+(defstruct (bar
+            (:constructor create-bar (a b))
+            (:constructor create-bar-x (x &aux (a (* x 10)) (b (* x 20))))
+            (:print-function print-bar))
+  a b)
+
+#+xyzzy
+(defun print-bar (bar stream depth)
+  (declare (ignoable depth))
+  (format stream "#<a=~A, b=~A>" (bar-a bar) (bar-b bar)))
+#+common-lisp
+(defun print-bar (obj stream depth)
+  (print-unreadable-object (obj stream)
+    (format stream "a=~A, b=~A" (bar-a obj) (bar-b obj))))
+
+(create-bar 1 2)
+;;=> #S(bar a 1 b 2)	(xyzzy では :print-bar が無視される？)
+;;=> #<a=1, b=2>	(:print-bar 使用時)
+
+;; Q. このエラーはどういうことなの？
+;; A. 構造体の定義時に引数を指定しない(デフォルトの)コンストラクタを残しておく
+;;    (:constructor make-foo)
+#S(bar a 10 b 20)
+~> コンストラクタがありません: bar
+)
