@@ -331,6 +331,12 @@
 
 (defun map-slash-to-backslash-region (from to)
   (interactive "*r")
+  #+nil
+  (ed::text-decode-region
+   #'(lambda (in &optional out)
+       (format out "~a" (map-backslash-to-slash in)))
+   from to)
+  #-nil
   (save-restriction
     (goto-char (min from to))
     (narrow-to-region from to)
@@ -449,10 +455,6 @@
 
 ;(global-set-key #\C-F8 'indent-buffer)
 
-(defun goto-char-interactive (point)
-  (interactive "nGoto char: ")
-  (goto-char point))
-
 (defun tac-region (start end)
   "行を逆順にする."
   (interactive "*r")
@@ -523,3 +525,39 @@
 
 (global-set-key '(#\C-x #\t #\f) 'toggle-buffer-fold)
 
+(defun get-in (object keys &optional not-found)
+  (reduce #'(lambda (obj key)
+              (case (type-of key)
+                (integer (elt obj key))
+                (symbol        (cdr (assoc key obj)))
+                (simple-string (cdr (assoc key obj :test #'string=)))
+                (otherwise (error "Unknown key type: ~a" key))))
+          keys :initial-value object))
+
+(defun escape-stream (in out)
+  "入力INをエスケープ処理してOUTに出力します."
+  (check-type out stream)
+  (map nil (lambda (c)
+             (if (or (char<= #\x20 c #\x7e) ; printable ascii
+                     (char= c #\newline))
+                 (format out "~c" c)
+               (format out "\\x~02,'0x" (char-code c))))
+       (convert-encoding-to-internal *encoding-binary* in)))
+
+(defun escape (in &optional out)
+  (if (null out)
+      (with-output-to-string (_o)
+        (escape-stream in _o))
+    (escape-stream in out)))
+
+#+test
+(escape "[a-z] こんにちは?")
+
+(defun escape-region (from to)
+  (interactive "*r")
+  (ed::text-decode-region #'escape from to))
+
+(defun text-filter-region (command from to)
+  "選択範囲(FROM-TO)をCOMMANDでフィルタします."
+  (interactive "*aFilter command: \nr")
+  (ed::text-decode-region command from to))

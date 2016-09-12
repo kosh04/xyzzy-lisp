@@ -3853,3 +3853,32 @@ si:*trace-on-error* によると、
 #S(bar a 10 b 20)
 ~> コンストラクタがありません: bar
 )
+
+(let (xx)
+  (declare (special xx))
+  (setq xx :setq)
+  (set 'xx :set)
+  xx)
+;;=> :setq
+;;=> :set   スペシャル宣言(declare (special ...))がある場合
+
+;; 型を定義する
+(deftype string-designator ()
+  '(or character symbol string))
+
+(typep #\a '(or character symbol string)) ; t
+(typep #\a 'string-designator)            ; nil (バグっぽい)
+
+;; detect-char-encoding 関数は文字コード判定用にストリームから文字を読み取るが
+;; 終了後にストリーム位置は復元されない？
+
+(with-open-file (fp "~/.xyzzy" :direction :input)
+  (list (detect-char-encoding fp)
+        (read-line fp)))
+;;!> EOFに達しました: #<file-input stream: ~/.xyzzy> (ファイルサイズが小さい場合に起こる)
+
+(with-open-file (fp "~/docs/README.md" :direction :input)
+  (list (detect-char-encoding fp)
+        (read-line fp)))
+;;=> (#.(make-utf8-encoding "utf8n" "Unicode (UTF-8N)" :signature nil :windows t :byte-order nil :cjk :jp)
+;;      "ル」→「ショートカットの作成...」でできます。")
