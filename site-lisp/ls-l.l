@@ -88,6 +88,7 @@
                         ))
         (toggle-read-only t)))
     (switch-to-buffer dirname)
+    (view-mode)
     (message "~D director~:@P, ~D file~:P"
              (length dirs-info) (length files-info))))
 

@@ -26,12 +26,14 @@ xyzzy用に自作したライブラリや設定ファイルを置いています。
 * newlisp.l     - newLISP編集用メジャーモード
   必要なファイル
   - ../etc/newLISP - キーワードファイル
-  - http://github.com/kosh04/newlisp-files >> nelisp_manual.txt - マニュアルファイル
-* newlispfn.l      - newLISPの関数の移植
-* libmagic.l       - ファイル識別ライブラリ(file)
+  - http://github.com/kosh04/newlisp-mode >> nelisp_manual.txt - マニュアルファイル
+* newlispfn.l   - newLISPの関数の移植
+* libmagic.l    - ファイル識別ライブラリ(`file`コマンド)
 * emacs-help.l  - [F1]をヘルプキーとして扱う
 * emacs-fn.l    - 自前のElisp関数、コマンド
 * redef.l       - ~/lisp/*.l 以下の関数の再定義
+* takt/         - 音楽プログラミング言語[Takt](http://takt.sourceforge.net/)編集用メジャーモード
+* wandbox.l     - オンラインコンパイラ[Wandbox](http://melpon.org/wandbox/)用クライアント
 * junk-lib.l    - その他小物
 
 他にもあるかも
@@ -52,7 +54,7 @@ xyzzy用に自作したライブラリや設定ファイルを置いています。
 ## 設定ファイル
 
 - `init.l` - ここから
-- `conf/NN-XXX.l` - 各種ライブラリの設定 (init-loader 風)
+- `config/NN-XXX.l` - 各種ライブラリの設定 ([init-loader](https://github.com/emacs-jp/init-loader) 風)
 
 
 ## 仕様
