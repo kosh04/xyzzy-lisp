@@ -38,7 +38,7 @@
   (interactive "fGo Playground: ")
   (let ((code (with-output-to-string (out)
                 (user::cat path out))))
-    (msxml:xhr-post-async "http://play.golang.org/compile"
+    (msxml:xhr-post-async "https://play.golang.org/compile"
                           `(:version 2 :body ,code)
                           :key 'msxml:xhr-response-text
                           :oncomplete #'(lambda (data)
