@@ -1,11 +1,12 @@
-;;; -*- Mode: Lisp; Package: USER -*-
+;;; -*- Mode: Lisp; Encoding: Shift_JIS; Package: USER; -*-
 ;;;
 ;;; This file is NOT part of xyzzy.
 ;;;
 
 ;;; Usage:
-;;; (autoload 'mandelbrot "mandelbrot" t)
-;;; M-x: mandelblot
+
+;; (require "mandelbrot")
+;; M-x: mandelblot
 
 (provide "mandelbrot")
 

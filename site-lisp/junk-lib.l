@@ -29,17 +29,17 @@
 (defun echo (input &optional output)
   "INPUTストリームの中身をOUTPUTに流す.
 デフォルトの出力先は*standard-output*."
-  #+NIL
-  ;; 1文字単位はさすがに遅い
+  #+nil
+  ;; 1文字単位は遅い
   (do ((c #1=(read-char input nil :eof) #1#))
       ((eq c :eof))
     (write-char c output))
-  #+xyzzy
+  #+(or xyzzy common-lisp)
   (loop
     ;; 末尾の改行も考慮するならread-lineは多値でとるべき
     (multiple-value-bind (line missing-newline-p)
         (read-line input nil #1='#:EOF)
-      (message "Read: ~S" (list line missing-newline-p))
+      ;;(message "Read: ~S" (list line missing-newline-p))
       (when (eq line #1#) (return))
       (princ line output)
       (unless missing-newline-p (terpri output)))))
@@ -205,6 +205,14 @@
   (save-excursion (apply fn args) (point)))
 ;; (point-of #'goto-bol)
 
+(defun goto-char* (point)
+  "`goto-char' interactive version."
+  (interactive "nGoto char: ")
+  (goto-char point))
+
+(define-key esc-map '(#\g #\c) 'goto-char*)
+(define-key esc-map '(#\g #\g) 'goto-line)
+
 (defun map-internal-to-binary (input-string-or-stream &optional output-stream)
   (convert-encoding-to-internal *encoding-binary*
                                 input-string-or-stream
@@ -238,11 +246,11 @@
 
 (defun radix (num &optional (base 10))
   "数値NUMを基数BASEで表示します."
-  #+nil
+  (format nil "#~Dr~:@(~VR~)" base base num)
+  #+or
   (let ((*print-base* base)
         (*print-radix* t))
-    (princ-to-string num))
-  (format nil "#~Dr~:@(~VR~)" base base num))
+    (princ-to-string num)))
 
 ;; 日付を36進数で表示
 ;; (radix (get-universal-time) 36)

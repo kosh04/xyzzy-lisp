@@ -100,24 +100,25 @@
   ;; - (path json "foo" 1 "bar" 2) => json.foo[1].bar[2]
   ;; - (path json '("key" . "value")) => json[key=value]
   (defun path (json &rest items)
-    (dolist (item items)
-      (setf json (cond ((consp item)
-                        (let ((key (car item))
-                              (value (cdr item)))
-                          (case value
-                            (*  ;; (key . *) => $[key=*]
-                             (loop for c in json
-                                   collect (cdr (find key c :key #'car :test #'equal))))
-                            (t  ;; (key . value) => $[key=value]
-                             (find value json
-                                   :key #'(lambda (x) (cdr (assoc key x :test #'equal)))
-                                   :test #'equal)))))
-                       ((stringp item)    ;; key => $[key]
-                        (cdr (assoc item json :test #'equal)))
-                       ((integerp item)   ;; num => $[num]
-                        (nth item json))
-                       (t (error "Unknown item: ~a" item)))))
-    json)
+    (reduce #'(lambda (obj item)
+                (cond ((consp item)
+                       (let ((key (car item))
+                             (value (cdr item)))
+                         (case value
+                           (*  ;; (key . *) => $[key=*]
+                            (loop for c in obj
+                                  collect (cdr (find key c :key #'car :test #'equal))))
+                           (t  ;; (key . value) => $[key=value]
+                            (find value obj
+                                  :key #'(lambda (x) (cdr (assoc key x :test #'equal)))
+                                  :test #'equal)))))
+                      ((stringp item)    ;; key => $[key]
+                       (cdr (assoc item obj :test #'equal)))
+                      ((integerp item)   ;; num => $[num]
+                       (elt obj item))
+                      (t
+                       (error "Unknown item: ~a" item))))
+            items :initial-value json))
 
   (defun make-profiles (compilers)
     (labels ((compiler-options (compiler)

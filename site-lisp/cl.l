@@ -170,11 +170,10 @@ for the variables specified by this standard are listed in the next figure."
 (defun name-char (name)
   "Returns the character object whose name is NAME.
 If such a character does not exist, nil is returned."
-  (if (typep name '(or string symbol character))
-      (let ((lst (assoc (string name) si:*character-name-alist*
-                        :test #'string-equal)))
-        (if lst (ed:unicode-char (cdr lst))))
-      (error "argument ~S should be a string, a symbol or a character" name)))
+  (check-type name (or string symbol character))
+  (let ((lst (assoc (string name) si:*character-name-alist*
+                    :test #'string-equal)))
+    (if lst (ed:unicode-char (cdr lst)))))
 
 (defun  ensure-directories-exist (path &key verbose)
   (declare (ignore verbose))
