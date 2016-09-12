@@ -1,15 +1,18 @@
 ;;; init.el
 
-(defvar *xyzzy-user-init-directory*
+(defvar *user-init-directory*
   (directory-namestring (or *load-pathname* ".")))
 
 ;; このディレクトリを *load-path* に追加
-(pushnew *xyzzy-user-init-directory* *load-path* :test #'path-equal)
+(pushnew *user-init-directory* *load-path* :test #'path-equal)
 
-;; load conf/*-*.l
-(dolist (config (directory (merge-pathnames "conf/" *xyzzy-user-init-directory*)
-                           :absolute t
-                           :wild "*-*.l"))
+(defvar *user-config-files*
+  (directory (merge-pathnames "config/" *user-init-directory*)
+             :absolute t
+             :wild "*-*.l")
+  "Files config/*-*.l")
+
+(dolist (config *user-config-files*)
   (load config :verbose t :print t))
 
 (gc)

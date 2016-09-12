@@ -16,6 +16,7 @@
 (pushnew '("\\.wsf$" . xml-mode) *auto-mode-alist* :test #'equal)
 (pushnew '("\\.xsd$" . xml-mode) *auto-mode-alist* :test #'equal)
 (pushnew '("\\.mxml$" . xml-mode) *auto-mode-alist* :test #'equal)
+(pushnew '("\\.iml\\'" . xml-mode) *auto-mode-alist* :test #'equal)
 
 (setq xml::*xml-cdata-attribute* '(:foreground 15))
 
