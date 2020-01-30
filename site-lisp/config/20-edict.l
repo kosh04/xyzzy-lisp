@@ -1,4 +1,4 @@
-;;; conf.edict.l --- «‘ŠÖ˜A
+;;; config/edict --- «‘İ’è
 
 (defun popup-edict (lookup-function)
   (let ((msg (save-window-excursion

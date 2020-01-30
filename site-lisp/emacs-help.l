@@ -18,6 +18,7 @@
   (define-key help-map #\k 'describe-key)
   (define-key help-map #\l 'view-lossage)
   (define-key help-map #\v 'describe-variable)
+  (define-key help-map #\w 'where-is)
   (define-key help-map #\C-a 'about-dialog)
 
   (define-key help-map #\F1 'show-html-help)
@@ -86,3 +87,36 @@
           (setq file (substring file 0 -1)))
       (find-file file)
       (add-history file '*minibuffer-file-name-history*))))
+
+;; [2018-12-04] TODO: keymap ïœêîÇÃçƒãAìIÇ»íTçı
+(defun where-is-1 (def &aux hello)
+  "Return ((key Key) . (keymap Symbol))"
+  (or
+   ;; esc
+   (let ((p (position def esc-map)))
+     (and p (cons (code-char (+ p #x8000)) 'esc-map)))
+   ;; ctrl-x
+   (let ((p (position def ctl-x-map)))
+     (and p (cons (vector #\C-x (code-char p)) 'ctl-x-map)))
+   ;; ctrl-c
+   (let ((kv (find def spec-map :key 'safe-cdr)))
+     (and kv (cons (vector #\C-c (car kv)) 'spec-map)))
+   ;; help
+   (let ((kv (find def help-map :key 'safe-cdr)))
+     (and kv (cons (vector 'help-map (car kv)) 'help-map)))
+   ;; *local
+   (let ((kv (find def (local-keymap) :key 'safe-cdr)))
+     (and kv (cons (car kv) 'local-keymap)))
+   ;; *global
+   (let ((p (position def *global-keymap*)))
+     (and p (cons (code-char p) '*global-keymap*)))))
+
+(defun where-is (definition)
+  "Print message listing key sequences that invoke the command DEFINITION."
+  (interactive "aWhere is command: ")
+  (unless definition (error "No command"))
+  (message "~s" (where-is-1 definition))
+  (let ((x (where-is-1 definition)))
+    (if x
+        (message "~a is on ~s (~a)" definition (car x) (cdr x))
+        (message "~a is not on any key" definition))))

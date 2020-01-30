@@ -1,4 +1,4 @@
-;;; conf/tags.l
+;;; config/tags
 
 ;; タグジャンプ
 (defvar *xyzzy-source-directories*

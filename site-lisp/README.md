@@ -53,9 +53,20 @@ xyzzy用に自作したライブラリや設定ファイルを置いています。
 
 ## 設定ファイル
 
-- `init.l` - ここから
+- `.xyzzy` - ここから
 - `config/NN-XXX.l` - 各種ライブラリの設定 ([init-loader](https://github.com/emacs-jp/init-loader) 風)
 
+
+## セットアップ
+
+主に自分用。xyzzy 本体と設定ファイル置き場を分離させるとリポジトリ管理が楽になる…かも。
+
+```cmd
+git clone https://github.com/kosh04/xyzzy-lisp.git %APPDATA%\xyzzy
+edit %USERPROFILE%\.xyzzy
+>>> (load (merge-pathnames "xyzzy/.xyzzy" (si:getenv "APPDATA")) :verbose t)
+start %LOCALAPPDATA%\Programs\xyzzy\xyzzy.exe
+```
 
 ## 仕様
 

@@ -122,20 +122,31 @@
     (goto-char (point-min))
     (toggle-read-only t)))
 
-;; ed::build-summary-function を2回も呼び出すのは何かやだな
-(defun goto-function (fn)
+(defvar-local *summaries* nil
+  "`ed::build-summary-function' のキャッシュ")
+
+(defun build-summary-function (&key (update t) (if-does-not-exist :skip))
+  (cond ((boundp 'ed::build-summary-function)
+         (when (or update (null *summaries*))
+           (setf *summaries* (funcall ed::build-summary-function)))
+         (or *summaries*
+             #1=(if (eq if-does-not-exist :error)
+                    (error "関数ないアルヨ")
+                  nil)))
+        (t #1#)))
+
+(defun goto-function (fname)
+  "バッファ中の関数名 FNAME にジャンプする."
   (interactive
-      (list (if (boundp 'ed::build-summary-function)
-                (completing-read "Function: "
-                                 (or (mapcar #'cadr (funcall ed::build-summary-function))
-                                     (error "Function Not Found"))
-                                 :must-match t)
-                (error "関数ないよ"))))
-  (let* ((summary (funcall ed::build-summary-function))
-         (fnlst (mapcar #'cadr summary))
-         (nlst  (mapcar #'car summary)))
-    (goto-line (nth (position fn fnlst :test #'equal) nlst))))
-(define-key spec-map #\C-l 'goto-function)
+      (list (let ((fns (build-summary-function :update t :if-does-not-exist :error)))
+              (completing-read "Goto Function: "
+                               (mapcar #'second fns)
+                               :must-match t))))
+  (let ((x (find fname (build-summary-function :update nil) :key #'second :test #'equal)))
+    (when x
+      (goto-line (first x)))))
+
+(define-key spec-map #\l 'goto-function)
 
 ;; (require "paren") とかにもそれなりに対応
 (defun ffap-find-file (filename)
@@ -523,7 +534,7 @@
                     "折り返さない->指定幅で折り返す(~D)->[ウィンドウ幅で折り返す]")))
            (default-value 'buffer-fold-width)))
 
-(global-set-key '(#\C-x #\t #\f) 'toggle-buffer-fold)
+(global-set-key '(#\C-c #\t #\f) 'toggle-buffer-fold)
 
 (defun get-in (object keys &optional not-found)
   (reduce #'(lambda (obj key)

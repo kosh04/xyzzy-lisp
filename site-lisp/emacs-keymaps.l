@@ -13,7 +13,7 @@
 ;(global-set-key #\C-M-% 'replace-regexp)
 (global-set-key #\C-M-% 'query-replace-regexp)
 (global-set-key #\C-M-\\ 'indent-region)
-;(global-set-key '(#\C-x #\h) 'mark-whole-buffer)
+(global-set-key '(#\C-x #\h) 'mark-whole-buffer)
 (global-set-key '(#\C-x #\u) 'undo)
 (global-set-key '(#\C-x #\C-r) 'find-file-read-only)
 (global-set-key '(#\C-x #\C-w) 'emacs-write-file)
@@ -57,13 +57,28 @@
 (global-set-key '(#\C-x #\r #\t) 'string-rectangle)
 (global-set-key '(#\C-x #\r #\y) 'yank-rectangle)
 
-;; フレーム (#\C-x #\5 *)
-(defvar ctl-x-5-map (make-sparse-keymap))
-(setf (symbol-function 'ctl-x-5-prefix) ctl-x-5-map)
-(define-key ctl-x-map #\5 'ctl-x-5-prefix)
-(define-key ctl-x-5-map #\o 'other-pseudo-frame)
-(define-key ctl-x-5-map #\0 'delete-pseudo-frame)
-(define-key ctl-x-5-map #\2 'new-pseudo-frame)
+;; C-x t KEY
+;; NOTE: xyzzy の擬似フレームは Emacs 27 で実装された tab-bar.el の遠い親戚 (そうか？)
+(require 'pframe)
+(defvar pseudo-frame-prefix-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map #\0 'delete-pseudo-frame)
+    ;;(define-key map #\1 'delete-all-pseudo-frames)
+    (define-key map #\2 'new-pseudo-frame)
+    (define-key map #\o 'other-pseudo-frame)
+    (define-key map #\b 'switch-pseudo-frame)
+    (define-key map #\r 'rename-pseudo-frame)
+    map)
+  "[user] Keymap for control pseudo frame.")
+(setf (symbol-function 'pseudo-frame-prefix) pseudo-frame-prefix-map)
+(define-key ctl-x-map #\t 'pseudo-frame-prefix)
+
+(set-extended-key-translate-table exkey-C-tab #\F20)   ; Ctrl+Tab
+(set-extended-key-translate-table exkey-S-C-tab #\F21) ; Shift+Ctrl+Tab
+(global-set-key #\F20 'next-pseudo-frame)
+(global-set-key #\F21 'previous-pseudo-frame)
+;;(global-set-key #\M-Left 'previous-pseudo-frame)
+;;(global-set-key #\M-Right 'next-pseudo-frame)
 
 (global-set-key '(#\C-x #\3) 'split-window-vertically)
 (define-key ctl-x-4-map #\C-o 'display-buffer)

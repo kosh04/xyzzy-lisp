@@ -1,4 +1,4 @@
-;; conf.misc.l --- 雑多な設定
+;;; config/misc --- 雑多な設定
 
 ;; nilなら、JIS X0208に存在する文字をUnicodeから内部コードに変換する際、
 ;; 日本語の文字として扱う (ChangeLog Version 0.2.2.205)
@@ -12,11 +12,6 @@
   (error 'quit))
 
 (global-set-key #\C-g 'keyboard-quit)
-
-;(require "my-dired")
-(require "ls-l")
-(global-set-key '(#\C-x #\d) 'ls-l)
-(global-set-key '(#\C-x #\4 #\d) 'ls-l-other-window)
 
 (set-extended-key-translate-table exkey-S-space #\F22) ; XXX
 (defun insert-space (&optional (n 1))
@@ -40,7 +35,7 @@
   (interactive "p")
   (cond (self (insert-date-string))
         (:else (insert (iso8601-date)))))
-(global-set-key '(#\C-c #\t) 'insert-date)
+(global-set-key '(#\C-c #\T) 'insert-date)
 
 ;; XTAGS (tags.l)
 (setf (symbol-function 'find-tag) #'direct-tag-jump)

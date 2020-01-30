@@ -1,4 +1,4 @@
-;; conf.textedit.l --- テキスト編集系の設定
+;;; config/textedit --- テキスト編集系の設定
 
 ;; 括弧の強調表示
 (require "paren")
@@ -126,7 +126,7 @@
 
 (require "changelog")
 (setq add-log-full-name (user-name))
-(setq change-log-default-name (merge-pathnames "Documents/ChangeLog" (si:getenv "HOMEPATH")))
+(setq change-log-default-name (merge-pathnames "Dropbox/Documents/ChangeLog" (si:getenv "HOMEPATH")))
 (global-set-key '(#\C-x #\4 #\a) 'add-change-log-entry)
 
 ;; Fundamental モードでも括弧の色付け

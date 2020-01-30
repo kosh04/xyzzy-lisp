@@ -1,6 +1,19 @@
 ;;; .xyzzy	-*- Lisp -*-
 
-(let ((init (merge-pathnames
-             "site-lisp/init.l"
-             (directory-namestring (or *load-pathname* ".")))))
-  (load init :verbose t :print t))
+(defvar *user-config-root*
+  (directory-namestring (or *load-pathname* "."))
+  "設定ファイルリポジトリのルートディレクトリ.")
+
+(pushnew (merge-pathnames "site-lisp" *user-config-root*) *load-path* :test #'path-equal)
+
+(defvar *user-config-files*
+  (directory (merge-pathnames "site-lisp/config" *user-config-root*)
+             :absolute t
+             :file-only t
+             :wild "*-*.l")
+  "Files config/*-*.l")
+
+(dolist (config *user-config-files*)
+  (load config :verbose t :print t))
+
+(gc)

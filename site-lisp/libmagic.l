@@ -80,6 +80,7 @@ ChangeLog
 2009-xx-xx  first commit
 2011-09-28  chunk-get-string の値を少し減らした
 2015-02-25  makefileとテストコードを追加
+2017-03-30  エラー処理時に変数を参照できないバグを修正
 
 |#
 
@@ -121,28 +122,17 @@ int magic_compile(magic_t cookie, const char *filename);
 int magic_load(magic_t cookie, const char *filename);
 |#
 
-(c:*define-dll-entry c:int magic_open (c:int)
-  *magic-dll* "magic_open")
-(c:*define-dll-entry c:int magic_close (c:int)
-  *magic-dll* "magic_close")
-(c:*define-dll-entry c:char* magic_error (c:int)
-  *magic-dll* "magic_error")
-(c:*define-dll-entry c:int magic_errno (c:int)
- *magic-dll* "magic_errno")
-(c:*define-dll-entry c:char* magic_file (c:int c:char*)
-*magic-dll* "magic_file")
-(c:*define-dll-entry c:char* magic_buffer (c:int c:void* c:size_t)
- *magic-dll* "magic_buffer")
-(c:*define-dll-entry c:int magic_setflags (c:int c:int)
- *magic-dll* "magic_setflags")
-(c:*define-dll-entry c:int magic_ckeck (c:int c:char*)
- *magic-dll* "magic_check")
-(c:*define-dll-entry c:int magic_compile (c:int c:char*)
- *magic-dll* "magic_compile")
-(c:*define-dll-entry c:int magic_load (c:int c:char*)
-  *magic-dll* "magic_load")
-(c:*define-dll-entry c:char* magic_discriptor (c:int c:int)
-  *magic-dll* "magic_discriptor")
+(c:*define-dll-entry c:int   magic_open (c:int)  *magic-dll* "magic_open")
+(c:*define-dll-entry c:int   magic_close (c:int) *magic-dll* "magic_close")
+(c:*define-dll-entry c:char* magic_error (c:int) *magic-dll* "magic_error")
+(c:*define-dll-entry c:int   magic_errno (c:int) *magic-dll* "magic_errno")
+(c:*define-dll-entry c:char* magic_file (c:int c:char*)     *magic-dll* "magic_file")
+(c:*define-dll-entry c:char* magic_buffer (c:int c:void* c:size_t) *magic-dll* "magic_buffer")
+(c:*define-dll-entry c:int   magic_setflags (c:int c:int)   *magic-dll* "magic_setflags")
+(c:*define-dll-entry c:int   magic_ckeck (c:int c:char*)    *magic-dll* "magic_check")
+(c:*define-dll-entry c:int   magic_compile (c:int c:char*)  *magic-dll* "magic_compile")
+(c:*define-dll-entry c:int   magic_load (c:int c:char*)     *magic-dll* "magic_load")
+(c:*define-dll-entry c:char* magic_discriptor (c:int c:int) *magic-dll* "magic_discriptor")
 
 (c:*define MAGIC_NONE              #x000000)
 (c:*define MAGIC_DEBUG             #x000001)
@@ -197,32 +187,33 @@ int magic_load(magic_t cookie, const char *filename);
   "libmagic に渡すオプションフラグ.")
 
 (defmacro with-open-magic ((ms &optional flags) &body body)
-  `(labels (($ (ptr)
-              (if (= ptr NULL)
-                  (error "~A" (chunk-get-string (magic_error ,ms)))
-                  (chunk-get-string ptr))))
-     ;; 明示的にデータベースファイルを指定しないときの挙動が掴めないので
-     ;; xyzzy 側で先手エラーを打つ.
+  ;; 明示的にデータベースファイルを指定しないときの挙動が掴めないので
+  ;; xyzzy 側で先手エラーを打つ.
+  `(progn
      (unless (and *magic-database-file*
                   (file-exist-p *magic-database-file*)
                   (not (file-directory-p *magic-database-file*)))
        (error "could not find any magic files!"))
      (let ((,ms (magic_open (logior (or ,flags 0) MAGIC_NONE))))
-       (if (= ,ms NULL)
-           ;; FIXME: errno の取得方法は？
-           (error "magic_open: error occurred"))
-       (unwind-protect
-           (progn
-             (if (= (magic_load ,ms (si:make-string-chunk
-                                     (namestring *magic-database-file*)))
-                    -1)
-                 (error "~A" (chunk-get-string (magic_error ,ms))))
-             ,@body)
-         (if (/= ,ms NULL)
-             (magic_close ,ms))))))
+       (labels (($ (ptr)
+                  (if (= ptr NULL)
+                      (error "~A" (chunk-get-string (magic_error ,ms)))
+                    (chunk-get-string ptr))))
+         (if (= ,ms NULL)
+             ;; FIXME: errno の取得方法は？
+             (error "magic_open: error occurred"))
+         (unwind-protect
+             (progn
+               (if (= (magic_load ,ms (si:make-string-chunk
+                                       (namestring *magic-database-file*)))
+                      -1)
+                   (error "~A" (chunk-get-string (magic_error ,ms))))
+               ,@body)
+           (if (/= ,ms NULL)
+               (magic_close ,ms)))))))
 (setf (get 'with-open-magic 'ed:lisp-indent-hook) 1)
 
-;;; ##autoload
+;;;##autoload
 (defun magic-file (filename &key mime-type mime-encoding)
   "determine file type."
   (setq filename (namestring filename))
@@ -235,7 +226,7 @@ int magic_load(magic_t cookie, const char *filename);
                             MAGIC_NONE))
     ($ (magic_file cookie (si:make-string-chunk filename)))))
 
-;;; ##autoload
+;;;##autoload
 (defun magic-buffer (string)
   (with-open-magic (cookie *magic-flags*)
     ($ (magic_buffer cookie

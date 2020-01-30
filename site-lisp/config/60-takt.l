@@ -1,4 +1,4 @@
-;;; conf/Takt
+;;; config/Takt
 
 (let* ((ldir (directory-namestring *load-pathname*))
        (takt-dir (merge-pathnames "../takt" ldir)))

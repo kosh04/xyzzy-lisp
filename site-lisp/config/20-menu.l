@@ -1,4 +1,4 @@
-;;; 20-menu.l
+;;; config/menu
 
 ;; メニューにクローズボックス (ChangeLog Version 0.2.1.180)
 (defun add-menu-close-box ()

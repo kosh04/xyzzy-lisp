@@ -1,4 +1,4 @@
-;;; conf.Lisp.l
+;;; config/Lisp
 
 ;; Common Lisp ‚à‚Ç‚«Šg’£
 (require "cl")

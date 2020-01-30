@@ -1,4 +1,4 @@
-;;; conf/wandbox.l
+;;; config/wandbox
 
 (require "wandbox")
 (global-set-key '(#\C-c #\w #\w) 'wandbox)

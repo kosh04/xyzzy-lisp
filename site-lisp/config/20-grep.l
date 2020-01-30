@@ -1,4 +1,4 @@
-;;; conf.grep.l
+;;; config/grep
 
 (require "grep")
 (require "grepd")

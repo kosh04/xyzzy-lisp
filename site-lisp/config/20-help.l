@@ -1,4 +1,4 @@
-;;; conf.help.l
+;;; config/help
 
 (require "paren")
 (require "ldoc")

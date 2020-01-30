@@ -1,4 +1,4 @@
-;; conf.javascript.l
+;;; config/JavaScript
 
 ;; http://xyzzy.s53.xrea.com/wiki/index.php?%B3%C8%C4%A5lisp%2Fjavascript-mode
 (require "javascript-mode")

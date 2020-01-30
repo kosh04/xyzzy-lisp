@@ -1,10 +1,10 @@
-;;; conf.newlisp.l
+;;; config/newlisp
 
 (require "newlisp")
 ;(require "newlispfn")
 
 (setq *newlisp-manual*
-      (merge-pathnames "Dropbox/Public/newlisp/newlisp_manual-10.5.0_firefox.txt"
+      (merge-pathnames "Dropbox/Documents/bookshelf/static/newlisp/newlisp_manual-10.5.0_firefox.txt"
                        (si:getenv "USERPROFILE")))
 
 (pushnew '("qa-.*$" . newlisp-mode) *auto-mode-alist* :test #'equal)

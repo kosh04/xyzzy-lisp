@@ -1,4 +1,4 @@
-;;; conf.keymaps.l
+;;; config/keymaps
 
 (global-set-key #\C-h 'delete-backward-char-or-selection)
 
@@ -11,11 +11,17 @@
 (setq *std-control-next-char* #\C-v
       *std-control-prior-char* #\C-^)
 
-;; Toggle
-(define-key *global-keymap* '(#\C-x #\t #\z) 'toggle-zenkaku-space)
-(define-key *global-keymap* '(#\C-x #\t #\n) 'toggle-newline)
-(define-key *global-keymap* '(#\C-x #\t #\t) 'toggle-tab)
-(define-key *global-keymap* '(#\C-x #\t #\e) 'toggle-trace-on-error)
+;; Toggle (Ctrl-c t KEY)
+(defvar user-toggle-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map #\z 'toggle-zenkaku-space)
+    (define-key map #\n 'toggle-newline) ; toggle-line-number ?
+    (define-key map #\t 'toggle-tab)
+    (define-key map #\e 'toggle-trace-on-error)
+    map)
+  "トグルコマンド色々.")
+(setf (symbol-function 'user-toggle-prefix) user-toggle-map)
+(define-key spec-map #\t #'user-toggle-prefix)
 
 ;; abbrev を使わない
 (when (modulep "abbrev")
@@ -32,12 +38,5 @@
 (global-set-key '(#\C-x #\C-\,) 'previous-buffer)
 
 (set-extended-key-translate-table exkey-S-backspace #\backspace) ;  Shift+Backspace
-(set-extended-key-translate-table exkey-C-tab #\F20)   ; Ctrl+Tab
-(set-extended-key-translate-table exkey-S-C-tab #\F21) ; Shift+Ctrl+Tab
-
-(global-set-key #\F20 'next-pseudo-frame)
-(global-set-key #\F21 'previous-pseudo-frame)
-;;(global-set-key #\M-Left 'previous-pseudo-frame)
-;;(global-set-key #\M-Right 'next-pseudo-frame)
 
 (global-set-key '(#\C-x #\*) 'calc)

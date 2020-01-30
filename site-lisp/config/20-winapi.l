@@ -1,4 +1,4 @@
-;;; conf.winapi.l --- WIN32API
+;;; config/WinAPI --- WIN32API
 
 (require "wip/winapi")
 (require "api")
@@ -44,6 +44,8 @@
 (global-set-key #\M-F10 'toggle-xyzzy-window)
 
 ;; winamp
+;; 2020-01-23 Winamp がインストールされていない状態だとレジストリ読み取り時にエラー
+#|
 (require "winamp")
 
 (defun winamp-play-music (file)
@@ -57,3 +59,4 @@
 
 ;; (global-set-key #\F11 'winamp::Stop-button)
 ;; (global-set-key #\F12 'winamp::Play-track)
+|#

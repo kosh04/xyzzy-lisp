@@ -1,4 +1,4 @@
-;; conf.isearch.l
+;;; config/isearch
 
 (require "isearch")
 
@@ -16,6 +16,6 @@
 ;; http://white.s151.xrea.com/wiki/index.php?cmd=read&page=script%2Figsearch
 (require "igsearch")
 (setq *igsearch-attribute* '(:background 2 :bold t))
-#+NIL
+;;#+NIL
 (setf *igsearch-init-state* :migemo)     ; migemo から始める
 (setf *igsearch-grep* nil)      ; 同一バッファ内の全候補列挙

@@ -1,4 +1,4 @@
-;;; conf.shell.l
+;;; config/shell
 
 (require "shell")
 

@@ -1,4 +1,8 @@
-;;; conf.encoding.l
+;;; config/encoding
+
+;; 新規ファイル
+(setq *default-fileio-encoding* *encoding-utf8n*)
+(setq *default-eol-code* *eol-lf*)
 
 ;; coding:utf-8 は BOM なしでお願い
 ;; or http://d.hatena.ne.jp/bowbow99/20100430/1272604971

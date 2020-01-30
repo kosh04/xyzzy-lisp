@@ -272,3 +272,43 @@
        (ole-method xhr 'open "GET" url nil) ;; blocking!
        (ole-method xhr 'send nil)
        (ole-method xhr 'responseBody)))))
+
+;; zap-to-char:    xxxxx=yyyyy -=> yyyyy
+;; kill-line-from: xxxxx=yyyyy -=> xxxxx
+(defun kill-line-from (pattern)
+  "文字列 PATTERN から行末までを削除する."
+  (interactive "*sKill line from: ")
+  (kill-region (progn
+                 (scan-buffer pattern)
+                 (point))
+               (progn
+                 (goto-eol)
+                 (point))))
+
+;; register.l
+
+(defun list-registers ()
+  (interactive)
+  (with-output-to-temp-buffer ("*register*")
+    (if ed::*register-alist*
+        (loop for (name . datum) in ed::*register-alist*
+              do (format t "~a~t~a~%" name datum))
+      (format t ";; Nothing in registers~%"))))
+
+(defun time-to-milliseconds (time)
+  "Convert & Insert milliseconds from format time."
+  (interactive "*shh:mm:ss.fff: ")
+  (unless (string-match
+           "\\(?:\\([0-9][0-9]?\\):\\)?\\([0-9]\\{2\\}\\):\\([0-9]\\{2\\}\\)\\(?:\\.\\([0-9]\\{3\\}\\)\\)?"
+           time)
+    (error "無効な時刻フォーマットです (hh:mm:ss.fff): ~a" time))
+  (multiple-value-bind (hh mm ss fff)
+      (values
+       (parse-integer (or (match-string 1) "0"))
+       (parse-integer (or (match-string 2) "0"))
+       (parse-integer (or (match-string 3) "0"))
+       (parse-integer (or (match-string 4) "0")))
+    (let* ((sec (+ (* hh (* 60 60)) (* mm 60) ss (* fff 1/1000)))
+           (msec (* 1000 sec)))
+      (insert (format nil "~d" msec))
+      msec)))

@@ -1,3 +1,5 @@
+;;; config/hexl
+
 ;; バイナリファイル編集 (hexl-mode)
 (defparameter hexl-program "hexl.exe")
 (require "hexl/hexl")

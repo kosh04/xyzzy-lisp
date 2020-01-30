@@ -1,9 +1,9 @@
-;;; conf.backup.l
+;;; config/backup
 
 (require "backup")
 
-;; %USERPROFILE%/AppData/Local/Temp/xl-backup
-(setq *backup-directory* (merge-pathnames "xl-backup" (si:getenv "TEMP"))
+;; XYZZYHOME/var/backup/*
+(setq *backup-directory* (merge-pathnames "../../var/backup" (directory-namestring (or *load-pathname* ".")))
       *hierarchic-backup-directory* t)
 
 (push (cons "Backup" *backup-directory*) *filer-directories*)

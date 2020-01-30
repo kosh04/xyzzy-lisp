@@ -1,4 +1,4 @@
-;;; conf.filer.l
+;;; config/filer
 
 ;; ファイラ関係
 
@@ -35,6 +35,7 @@
 			      (get-system-directory)))
        (cons "APPDATA" (si:getenv "APPDATA"))
        (cons "LOCALAPPDATA" (si:getenv "LOCALAPPDATA"))
+       (cons "VirtualStore" (merge-pathnames "VirtualStore" (si:getenv "LOCALAPPDATA")))
        (cons "TEMP" (or (si:getenv "TEMP")
 			(si:getenv "TMP")))
 
@@ -48,19 +49,22 @@
        (cons "SendTo" (get-special-folder-location :send-to))
        (cons "最近使ったファイル" (get-special-folder-location :recent))
        (cons "Startup" (get-special-folder-location :startup))
+       ;;"shell:appsFolder"
        ))
 
-;; ディレクトリを指す環境変数をショートカットに追加
-(dolist (e (sort (si:environ) #'string< :key #'car))
-  (multiple-value-bind (name path)
-      (values (car e) (cdr e))
-    (when (and (< (length path) 256)
-               (file-directory-p path))
-      ;;(pushnew (cons name path) *filer-directories* :test #'equal)
-      (or (find name *filer-directories* :test #'equal)
-          ;; append tail
-          (setq *filer-directories* (append *filer-directories* (list (cons name path)))))
-      )))
+(defun user/filer-add-env-directories ()
+  "ディレクトリを指す環境変数をショートカットに追加する."
+  (loop for (name . path) in (sort (si:environ) #'string< :key #'car)
+    if (and (< (length path) 256)
+            (file-directory-p path)
+            (not (find name *filer-directories* :key #'car :test #'equalp)))
+    do
+    ;;(pushnew (cons name path) *filer-directories* :test #'equal)
+    ;; append tail
+    (setq *filer-directories* (append *filer-directories* (list (cons (format nil "%~a%" name) path))))
+    ))
+
+(add-hook '*post-startup-hook* 'user/filer-add-env-directories)
 
 (defun open-filer* ()
   "バッファの作業ディレクトリでファイラを開きます."
@@ -166,3 +170,6 @@
 (define-key filer-keymap #\F2 'filer-rename)
 (define-key filer-keymap #\Delete #'filer-delete)
 (define-key filer-keymap #\M-g 'grep-dialog)
+
+;; (define-key filer-keymap #\n 'filer-forward-line)
+;; (define-key filer-keymap #\p 'filer-backward-line)

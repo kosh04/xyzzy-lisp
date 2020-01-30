@@ -3882,3 +3882,10 @@ si:*trace-on-error* によると、
         (read-line fp)))
 ;;=> (#.(make-utf8-encoding "utf8n" "Unicode (UTF-8N)" :signature nil :windows t :byte-order nil :cjk :jp)
 ;;      "ル」→「ショートカットの作成...」でできます。")
+
+(xhr:xhr-get "http://query.yahooapis.com/v1/public/yql"
+             :query '(:q "show tables"
+                      :env "http://datatables.org/alltables.env"
+                      :format "json")
+             :key (lambda (key)
+                    (json:json-decode (xhr:xhr-response-text key))))

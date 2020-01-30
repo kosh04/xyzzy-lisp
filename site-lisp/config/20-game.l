@@ -1,4 +1,4 @@
-;; conf.Game.l
+;;; config/Game
 
 (require "aitan")
 (require "animate")

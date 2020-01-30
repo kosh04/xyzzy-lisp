@@ -1,4 +1,4 @@
-;;; conf.Ispell.l
+;;; config/Ispell
 
 ;; USB ‚©‚çg‚¤‚Æ‚«‚Í ispell.ini ‚É’ˆÓ
 (require "ispell")

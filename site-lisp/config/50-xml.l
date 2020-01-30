@@ -1,4 +1,4 @@
-;;; conf.XML.l
+;;; config/XML
 
 (require "xml/xml-mode")
 (use-package 'xml)

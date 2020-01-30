@@ -1,4 +1,4 @@
-;;; conf.progmode.l --- コード編集系の設定
+;;; config/progmode --- コード編集系の設定
 
 (defun indent-and-next-line ()
   "インデントして次の行へ"
@@ -127,3 +127,14 @@
 
 (require "cmacexp")
 (define-key ed::*c-mode-map* '(#\C-c #\C-e) 'c-macro-expand-region)
+
+;; Perl / Perl6
+(pushnew '("\\.p6$" . perl-mode) *auto-mode-alist* :test #'equal)
+
+;; *.conf
+(setf (symbol-function 'conf-mode) #'perl-mode)
+(pushnew '("\\.conf\\'" . conf-mode) *auto-mode-alist* :test #'equal)
+(pushnew '("\\<configure\\>" . conf-mode) *auto-mode-alist* :test #'equal)
+
+;; JSON
+(pushnew '("\\.json$" . java-mode) *auto-mode-alist* :test #'equal)

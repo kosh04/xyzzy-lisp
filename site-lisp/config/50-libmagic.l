@@ -1,4 +1,4 @@
-;;; conf.libmagic.l
+;;; config/libmagic
 
 (require "libmagic")
 

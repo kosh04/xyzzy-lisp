@@ -1,4 +1,4 @@
-;;; conf.diff.l
+;;; config/diff
 
 (require "diff")
 

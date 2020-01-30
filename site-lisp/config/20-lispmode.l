@@ -1,4 +1,4 @@
-;;; conf.lispmode.l
+;;; config/lispmode
 
 (setq-default *lisp-indent-tabs-mode* nil)
 
@@ -103,7 +103,7 @@
           (funcall *initial-buffer-mode*))))
   t)
 
-(global-set-key '(#\C-x #\t #\s) 'toggle-scratch-buffer)
+(global-set-key '(#\C-c #\t #\s) 'toggle-scratch-buffer)
 
 ;; 書込み禁止バッファでも移動できるように(Emacs互換)
 (defun elisp-indent-line ()
