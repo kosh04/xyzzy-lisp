@@ -44,30 +44,32 @@
 
 (defun xyzzy-macroexpand-1 (&optional repeatedly)
   (interactive "P")
-  (let* ((*package* (find-package (or *buffer-package* *package*)))
-         (form (or (read-from-string
-                    (save-excursion
-                      (buffer-substring (progn
-                                          (unless (syntax-open-p (following-char))
-                                            (up-list -1 'noerror))
-                                          (point))
-                                        (progn
-                                          (forward-sexp)
-                                          (point))))
-                    nil nil)
-                   (error "展開するべきフォームが見つかりません")))
-         (*print-circle* t)
-         (expand (handler-case
-                     (funcall (if repeatedly
-                                  #'macroexpand
-                                  #'macroexpand-1)
-                              form)
-                   (error (c)
-                     (error "~A" (si:*condition-string c))))))
-    (with-output-to-temp-buffer (" *XYZZY macroexpansion*")
-      (format t "~S~%" expand)
-      (lisp-interaction-mode)
-      (indent-line-sexp))))
+  (let ((*package* (ed::find-buffer-package))
+        (*print-circle* t))
+    (let* ((form
+            (or (read-from-string
+                 (save-excursion
+                   (buffer-substring (progn
+                                       (unless (syntax-open-p (following-char))
+                                         (up-list -1 'noerror))
+                                       (point))
+                                     (progn
+                                       (forward-sexp)
+                                       (point))))
+                 nil nil)
+                (error "展開するべきフォームが見つかりません")))
+           (expand
+            (handler-case
+                (funcall (if repeatedly
+                             #'macroexpand
+                           #'macroexpand-1)
+                         form)
+              (error (c)
+                (error "~A" (si:*condition-string c))))))
+      (with-output-to-temp-buffer (" *XYZZY macroexpansion*")
+        (format t "~S~%" expand)
+        (lisp-interaction-mode)
+        (indent-line-sexp)))))
 
 (define-key ed::*lisp-mode-map* '(#\C-c #\C-m) 'xyzzy-macroexpand-1) ; C-c RET
 (define-key ed::*lisp-interaction-mode-map* '(#\C-c #\C-m) 'xyzzy-macroexpand-1)
@@ -178,3 +180,10 @@
   (some #'(lambda (parent)
             (sub-directory-p dir parent))
         *load-path*))
+
+(defun set-xyzzy-lisp-default-encoding ()
+  "Lisp ファイルのエンコーディングを sjis:crlf にする.
+DOCSTRING の文字化け回避 (旧時代感)"
+  (change-fileio-encoding *encoding-sjis*)
+  (change-eol-code *eol-crlf*))
+(add-hook '*lisp-mode-hook* 'set-xyzzy-lisp-default-encoding)
